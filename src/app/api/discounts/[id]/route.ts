@@ -33,7 +33,7 @@ export async function DELETE(
           const deactivateResult = await deactivateServiceDiscount(env, id)
           console.log("DELETE /api/discounts/[id] - Deactivate success:", deactivateResult)
           return NextResponse.json({
-            ...deactivateResult,
+            ...(typeof deactivateResult === 'object' && deactivateResult !== null ? deactivateResult : {}),
             _note: "Discount was deactivated (not deleted) due to API limitations"
           })
         } catch (deactivateError: any) {

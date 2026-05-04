@@ -19,7 +19,8 @@ export async function POST(request: Request) {
 
     for (const discountId of discountIds) {
       try {
-        const url = `https://api-${env.env}.treez.io/service/discount/v3/${discountId}`
+        const base = (env.apiBase ?? "https://api-prod.treez.io").replace(/\/$/, "")
+        const url = `${base}/service/discount/v3/${discountId}`
         
         const res = await fetch(url, {
           method: "DELETE",

@@ -301,7 +301,7 @@ export default function CreateDiscountPage() {
 
       // Add schedule if enabled
       if (formData.schedule.enabled) {
-        payload.schedule = {
+        const schedule: Record<string, unknown> = {
           startDate: formData.schedule.startDate,
           startTime: formData.schedule.startTime || "00:00",
           endDate: formData.schedule.endDate,
@@ -311,20 +311,22 @@ export default function CreateDiscountPage() {
         }
 
         if (formData.schedule.repeatType === "DAY") {
-          payload.schedule.repeatType = "DAY"
+          schedule.repeatType = "DAY"
         } else if (formData.schedule.repeatType === "WEEK") {
-          payload.schedule.repeatType = "WEEK"
+          schedule.repeatType = "WEEK"
         } else if (formData.schedule.repeatType === "CUSTOM") {
-          payload.schedule.customRepeatEvery = formData.schedule.customRepeatEvery
-          payload.schedule.customRepeatIntervalCount = parseInt(formData.schedule.customRepeatIntervalCount) || 1
-          payload.schedule.customRepeatDaysOfWeek = formData.schedule.customRepeatDaysOfWeek
-          payload.schedule.customEndType = formData.schedule.customEndType
+          schedule.customRepeatEvery = formData.schedule.customRepeatEvery
+          schedule.customRepeatIntervalCount = parseInt(formData.schedule.customRepeatIntervalCount) || 1
+          schedule.customRepeatDaysOfWeek = formData.schedule.customRepeatDaysOfWeek
+          schedule.customEndType = formData.schedule.customEndType
           if (formData.schedule.customEndType === "ON_DATE") {
-            payload.schedule.customEndDate = formData.schedule.customEndDate
+            schedule.customEndDate = formData.schedule.customEndDate
           } else if (formData.schedule.customEndType === "AFTER_COUNT") {
-            payload.schedule.customEndRepeatCount = parseInt(formData.schedule.customEndRepeatCount) || 0
+            schedule.customEndRepeatCount = parseInt(formData.schedule.customEndRepeatCount) || 0
           }
         }
+
+        payload.schedule = schedule
       }
 
       const res = await fetch("/api/discounts/create", {
