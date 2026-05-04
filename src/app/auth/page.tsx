@@ -35,7 +35,7 @@ export default function AuthPage() {
     if (index === 5 && value) {
       const fullCode = [...newCode.slice(0, 5), value].join("")
       if (fullCode.length === 6) {
-        setTimeout(() => handleSubmit(fullCode), 100)
+        handleSubmit(fullCode)
       }
     }
   }
@@ -60,7 +60,7 @@ export default function AuthPage() {
       const newCode = pastedData.split("")
       setCode(newCode)
       inputRefs.current[5]?.focus()
-      setTimeout(() => handleSubmit(pastedData), 100)
+      handleSubmit(pastedData)
     }
   }
 
@@ -86,16 +86,8 @@ export default function AuthPage() {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        toast.success("Access granted!", {
-          description: "Welcome to Perfect Union Portal",
-          duration: 2000,
-        })
-        
-        // Small delay for better UX
-        setTimeout(() => {
-          router.push("/dashboard")
-          router.refresh()
-        }, 500)
+        // Redirect immediately without delay
+        window.location.href = "/dashboard"
       } else {
         setError(true)
         setCode(["", "", "", "", "", ""])
