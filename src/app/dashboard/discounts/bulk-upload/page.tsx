@@ -249,7 +249,7 @@ export default function BulkUploadPage() {
         method: "PERCENT",
         isActive: true,
         isManual: true,
-        isCart: true,
+        isCart: false,
         isStackable: false,
         isAdjustment: false,
         requireReason: false,
