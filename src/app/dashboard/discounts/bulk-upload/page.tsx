@@ -149,15 +149,21 @@ export default function BulkUploadPage() {
     }
 
     const dateMonth = row.startDate ? format(row.startDate, "d MMM").toUpperCase() : "DATE"
-    const dayName = row.startDate ? format(row.startDate, "EEEE").toUpperCase() : "DAY"
     const percentage = row.amount || "X"
     const firstCollection = row.selectedCollections[0]?.name || "COLLECTION"
 
     switch (row.discountType) {
       case "FUN_FRIDAY":
         return `FUN FRIDAY ON ${dateMonth} - ${percentage}% OFF`
-      case "HOTBOX":
-        return `HOTBOX WEEKLY ON ${dayName.substring(0, 3)} - ${percentage}% OFF`
+      case "HOTBOX": {
+        const startDay = row.startDate ? format(row.startDate, "EEE").toUpperCase() : "DAY"
+        const endDay = row.endDate
+          ? format(row.endDate, "EEE").toUpperCase()
+          : row.startDate
+            ? format(row.startDate, "EEE").toUpperCase()
+            : "DAY"
+        return `HOTBOX ON ${startDay} TO ${endDay} END - ${percentage}% OFF`
+      }
       case "DAILY_SPECIAL":
         return `${firstCollection} - ${percentage}% OFF`
       default:
@@ -248,7 +254,7 @@ export default function BulkUploadPage() {
         amount: row.amount,
         method: "PERCENT",
         isActive: true,
-        isManual: true,
+        isManual: false,
         isCart: false,
         isStackable: false,
         isAdjustment: false,
