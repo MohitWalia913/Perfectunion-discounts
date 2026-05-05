@@ -1092,7 +1092,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              className="size-7 text-green-600 hover:bg-green-50 hover:text-green-700"
+                              className="size-7 text-[#1A1E26] hover:bg-[#1A1E26]/10 hover:text-[#141920]"
                               onClick={() => handleSaveRow(id, row)}
                               disabled={saving}
                             >
