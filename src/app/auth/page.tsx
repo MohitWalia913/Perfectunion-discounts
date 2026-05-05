@@ -207,7 +207,7 @@ export default function AuthPage() {
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <ShieldCheckIcon className="size-5" />
+                <LockIcon className="size-5" />
                 Verify Access
               </span>
             )}
