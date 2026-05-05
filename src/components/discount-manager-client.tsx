@@ -764,7 +764,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                 size="sm"
                 onClick={handleSaveAll}
                 disabled={saving}
-                className="gap-2 bg-[#0C3D22] hover:bg-[#0C3D22]/90"
+                className="gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90"
               >
                 <SaveIcon className="h-4 w-4" />
                 Save All ({editingRows.size})
@@ -780,7 +780,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
             placeholder="Search discounts by title, amount, or type..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-lg border border-border/80 bg-muted/30 pl-9 pr-3 text-sm shadow-sm transition-colors focus-visible:border-[#0C3D22]/50 focus-visible:ring-2 focus-visible:ring-[#0C3D22]/20"
+            className="h-10 w-full rounded-lg border border-border/80 bg-muted/30 pl-9 pr-3 text-sm shadow-sm transition-colors focus-visible:border-[#1A1E26]/50 focus-visible:ring-2 focus-visible:ring-[#1A1E26]/20"
           />
         </div>
 
@@ -936,7 +936,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tabular-nums",
-              "border-[#0C3D22]/30 bg-[#0C3D22]/10 text-[#0C3D22]",
+              "border-[#1A1E26]/30 bg-[#1A1E26]/10 text-[#1A1E26]",
             )}
           >
             {filtered.length} matching
@@ -957,8 +957,8 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
         <ScrollArea className="h-[min(58vh,calc(100vh-16rem)))] w-full">
           <Table className="w-full min-w-0 table-fixed">
-            <TableHeader className="sticky top-0 z-10 bg-[#0C3D22] backdrop-blur">
-              <TableRow className="hover:bg-transparent border-b-[#0C3D22]">
+            <TableHeader className="sticky top-0 z-10 bg-[#1A1E26] backdrop-blur">
+              <TableRow className="hover:bg-transparent border-b-[#1A1E26]">
                 <TableHead className="w-10 px-2">
                   <Checkbox
                     checked={
@@ -969,7 +969,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                       })
                     }
                     onCheckedChange={handleSelectAll}
-                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#0C3D22]"
+                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#1A1E26]"
                   />
                 </TableHead>
                 <TableHead className="w-[35%] text-xs font-bold uppercase tracking-wide text-white">

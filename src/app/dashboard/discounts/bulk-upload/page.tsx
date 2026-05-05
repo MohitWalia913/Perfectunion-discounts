@@ -357,7 +357,7 @@ export default function BulkUploadPage() {
               <Button
                 onClick={handleBulkCreate}
                 disabled={loading || validRowsCount === 0 || loadingData}
-                className="gap-2 bg-[#0C3D22] hover:bg-[#0C3D22]/90 text-white"
+                className="gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white"
               >
                 {loading ? (
                   <>
@@ -376,7 +376,7 @@ export default function BulkUploadPage() {
 
           {loadingData && (
             <div className="flex items-center justify-center py-8">
-              <Loader2Icon className="size-6 animate-spin text-[#0C3D22]" />
+              <Loader2Icon className="size-6 animate-spin text-[#1A1E26]" />
               <span className="ml-2 text-sm text-muted-foreground">Loading stores and collections...</span>
             </div>
           )}
@@ -609,7 +609,7 @@ export default function BulkUploadPage() {
                                 size="sm"
                                 className={cn(
                                   "h-7 px-2 text-xs",
-                                  row.repeat && "bg-[#0C3D22] hover:bg-[#0C3D22]/90"
+                                  row.repeat && "bg-[#1A1E26] hover:bg-[#1A1E26]/90"
                                 )}
                                 onClick={() => updateRow(row.id, { repeat: true, repeatType: "DAY" })}
                               >
@@ -620,7 +620,7 @@ export default function BulkUploadPage() {
                                 size="sm"
                                 className={cn(
                                   "h-7 px-2 text-xs",
-                                  !row.repeat && "bg-[#0C3D22] hover:bg-[#0C3D22]/90"
+                                  !row.repeat && "bg-[#1A1E26] hover:bg-[#1A1E26]/90"
                                 )}
                                 onClick={() => updateRow(row.id, { repeat: false, repeatType: "DO_NOT" })}
                               >
@@ -760,7 +760,7 @@ export default function BulkUploadPage() {
                   onClick={addRow}
                   variant="ghost"
                   size="sm"
-                  className="gap-2 text-[#0C3D22] hover:text-[#0C3D22] hover:bg-[#0C3D22]/10"
+                  className="gap-2 text-[#1A1E26] hover:text-[#1A1E26] hover:bg-[#1A1E26]/10"
                   disabled={loading}
                 >
                   <PlusIcon className="size-4" />
@@ -778,9 +778,9 @@ export default function BulkUploadPage() {
                   <p className="text-xs text-muted-foreground mb-1">Total</p>
                   <p className="text-2xl font-bold">{results.total}</p>
                 </div>
-                <div className="rounded-lg border border-[#0C3D22] bg-[#0C3D22]/10 p-4">
+                <div className="rounded-lg border border-[#1A1E26] bg-[#1A1E26]/10 p-4">
                   <p className="text-xs text-muted-foreground mb-1">Successful</p>
-                  <p className="text-2xl font-bold text-[#0C3D22]">{results.successful}</p>
+                  <p className="text-2xl font-bold text-[#1A1E26]">{results.successful}</p>
                 </div>
                 <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
                   <p className="text-xs text-muted-foreground mb-1">Failed</p>
@@ -789,15 +789,15 @@ export default function BulkUploadPage() {
               </div>
 
               {results.results.length > 0 && (
-                <div className="rounded-xl border border-[#0C3D22]/20 bg-[#0C3D22]/5 p-4">
+                <div className="rounded-xl border border-[#1A1E26]/20 bg-[#1A1E26]/5 p-4">
                   <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <CheckIcon className="size-4 text-[#0C3D22]" />
+                    <CheckIcon className="size-4 text-[#1A1E26]" />
                     Successfully Created ({results.successful})
                   </h4>
                   <div className="space-y-2">
                     {results.results.map((result) => (
                       <div key={result.index} className="rounded-lg bg-background border border-border p-3 flex items-center gap-2">
-                        <CheckIcon className="size-4 text-[#0C3D22]" />
+                        <CheckIcon className="size-4 text-[#1A1E26]" />
                         <span className="text-sm">{result.discount}</span>
                       </div>
                     ))}

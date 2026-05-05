@@ -24,7 +24,7 @@ export function DiscountManagerSkeleton() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-        <div className="flex items-center gap-3 bg-[#0C3D22] px-3 py-3">
+        <div className="flex items-center gap-3 bg-[#1A1E26] px-3 py-3">
           <Skeleton className="h-4 w-4 shrink-0 rounded bg-white/25" />
           <Skeleton className="h-3 flex-1 max-w-[28%] rounded bg-white/25" />
           <Skeleton className="h-3 w-[10%] rounded bg-white/25" />

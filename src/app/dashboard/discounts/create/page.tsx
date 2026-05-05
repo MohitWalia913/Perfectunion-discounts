@@ -419,7 +419,7 @@ export default function CreateDiscountPage() {
       <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0C3D22] text-white font-mono text-sm">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1A1E26] text-white font-mono text-sm">
                 $
               </span>
               Add Manual Discount
@@ -449,18 +449,18 @@ export default function CreateDiscountPage() {
                     disabled={loading}
                     className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
                       isActive
-                        ? "bg-[#0C3D22] text-white"
+                        ? "bg-[#1A1E26] text-white"
                         : isCompleted
-                          ? "bg-[#0C3D22]/10 text-foreground hover:bg-[#0C3D22]/20"
+                          ? "bg-[#1A1E26]/10 text-foreground hover:bg-[#1A1E26]/20"
                           : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
                     }`}
                   >
                     <div
                       className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                         isActive
-                          ? "bg-white text-[#0C3D22]"
+                          ? "bg-white text-[#1A1E26]"
                           : isCompleted
-                            ? "bg-[#0C3D22] text-white"
+                            ? "bg-[#1A1E26] text-white"
                             : "bg-muted-foreground/20 text-muted-foreground"
                       }`}
                     >
@@ -552,7 +552,7 @@ export default function CreateDiscountPage() {
                               name="discountType"
                               checked={formData.isCart}
                               onChange={() => updateFormData({ isCart: true })}
-                              className="h-4 w-4 text-[#0C3D22] focus:ring-[#0C3D22]"
+                              className="h-4 w-4 text-[#1A1E26] focus:ring-[#1A1E26]"
                             />
                             <span className="text-sm">This is a cart discount</span>
                           </label>
@@ -562,7 +562,7 @@ export default function CreateDiscountPage() {
                               name="discountType"
                               checked={!formData.isCart}
                               onChange={() => updateFormData({ isCart: false })}
-                              className="h-4 w-4 text-[#0C3D22] focus:ring-[#0C3D22]"
+                              className="h-4 w-4 text-[#1A1E26] focus:ring-[#1A1E26]"
                             />
                             <span className="text-sm">This is a line item discount</span>
                           </label>
@@ -666,7 +666,7 @@ export default function CreateDiscountPage() {
                                           <div className="flex items-center gap-2">
                                             <span className="text-sm font-medium">{collection.name}</span>
                                             {isSelected && (
-                                              <CheckIcon className="size-4 text-[#0C3D22]" />
+                                              <CheckIcon className="size-4 text-[#1A1E26]" />
                                             )}
                                           </div>
                                           {collection.description && (
@@ -686,15 +686,15 @@ export default function CreateDiscountPage() {
                             </div>
                             
                             {formData.selectedCollections.length > 0 && (
-                              <div className="rounded-lg border border-[#0C3D22]/20 bg-[#0C3D22]/5 p-3">
-                                <p className="text-xs font-semibold text-[#0C3D22] mb-2">
+                              <div className="rounded-lg border border-[#1A1E26]/20 bg-[#1A1E26]/5 p-3">
+                                <p className="text-xs font-semibold text-[#1A1E26] mb-2">
                                   Selected Collections ({formData.selectedCollections.length})
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {formData.selectedCollections.map((collection) => (
                                     <span
                                       key={collection.id}
-                                      className="inline-flex items-center gap-1.5 rounded-full bg-[#0C3D22] px-2.5 py-1 text-xs font-medium text-white"
+                                      className="inline-flex items-center gap-1.5 rounded-full bg-[#1A1E26] px-2.5 py-1 text-xs font-medium text-white"
                                     >
                                       {collection.name}
                                       <button
@@ -742,7 +742,7 @@ export default function CreateDiscountPage() {
                           type="button"
                           variant="outline" 
                           size="sm" 
-                          className="gap-1.5 bg-[#0C3D22] text-white hover:bg-[#0C3D22]/90 border-[#0C3D22]"
+                          className="gap-1.5 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90 border-[#1A1E26]"
                           onClick={addCoupon}
                         >
                           <PlusIcon className="size-4" />
@@ -791,7 +791,7 @@ export default function CreateDiscountPage() {
 
                     {storesLoading ? (
                       <div className="flex items-center justify-center py-8">
-                        <Loader2Icon className="size-6 animate-spin text-[#0C3D22]" />
+                        <Loader2Icon className="size-6 animate-spin text-[#1A1E26]" />
                         <span className="ml-2 text-sm text-muted-foreground">Loading stores...</span>
                       </div>
                     ) : (
@@ -1188,7 +1188,7 @@ export default function CreateDiscountPage() {
                                           key={day}
                                           className={`flex items-center justify-center h-10 rounded-lg border cursor-pointer transition-colors ${
                                             formData.schedule.customRepeatDaysOfWeek[day as keyof typeof formData.schedule.customRepeatDaysOfWeek]
-                                              ? "bg-[#0C3D22] text-white border-[#0C3D22]"
+                                              ? "bg-[#1A1E26] text-white border-[#1A1E26]"
                                               : "border-border bg-muted/30 hover:bg-muted"
                                           }`}
                                         >
@@ -1320,7 +1320,7 @@ export default function CreateDiscountPage() {
                           <ul className="space-y-1 text-sm">
                             {formData.selectedCollections.map((collection) => (
                               <li key={collection.id} className="flex items-center gap-2">
-                                <CheckIcon className="size-4 text-[#0C3D22]" />
+                                <CheckIcon className="size-4 text-[#1A1E26]" />
                                 <span className="font-medium">{collection.name}</span>
                                 <span className="text-xs text-muted-foreground font-mono">({collection.id})</span>
                               </li>
@@ -1337,7 +1337,7 @@ export default function CreateDiscountPage() {
                           <ul className="space-y-1 text-sm">
                             {formData.coupons.map((coupon) => (
                               <li key={coupon.code} className="flex items-center gap-2">
-                                <CheckIcon className="size-4 text-[#0C3D22]" />
+                                <CheckIcon className="size-4 text-[#1A1E26]" />
                                 <span className="font-mono font-semibold">{coupon.code}</span>
                                 {coupon.title && coupon.title !== coupon.code && (
                                   <span className="text-muted-foreground">({coupon.title})</span>
@@ -1358,7 +1358,7 @@ export default function CreateDiscountPage() {
                           <ul className="grid grid-cols-2 gap-2 text-sm">
                             {formData.selectedStores.map((store) => (
                               <li key={store.id} className="flex items-center gap-2">
-                                <CheckIcon className="size-4 text-[#0C3D22] shrink-0" />
+                                <CheckIcon className="size-4 text-[#1A1E26] shrink-0" />
                                 <span className="truncate">{store.name}</span>
                               </li>
                             ))}
@@ -1467,7 +1467,7 @@ export default function CreateDiscountPage() {
             <Button
               onClick={handleNext}
               disabled={loading || !formData.title || !formData.amount}
-              className="gap-2 bg-[#0C3D22] hover:bg-[#0C3D22]/90 text-white min-w-[120px]"
+              className="gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white min-w-[120px]"
             >
               {loading ? (
                 <>

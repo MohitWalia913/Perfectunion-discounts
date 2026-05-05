@@ -1,11 +1,11 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   CirclePlusIcon,
   LayoutGridIcon,
-  LeafIcon,
   UploadIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -65,10 +65,17 @@ export function DashboardShell({
         <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 lg:px-6">
           <Link
             href="/dashboard"
-            className="flex shrink-0 items-center gap-2 rounded-lg outline-none ring-offset-background transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#0C3D22] focus-visible:ring-offset-2"
+            className="flex shrink-0 items-center gap-2 rounded-lg outline-none ring-offset-background transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#1A1E26] focus-visible:ring-offset-2"
           >
-            <span className="flex size-9 items-center justify-center rounded-lg bg-[#0C3D22] text-white shadow-sm">
-              <LeafIcon className="size-4" aria-hidden />
+            <span className="relative flex size-9 shrink-0 overflow-hidden rounded-lg bg-muted/50 shadow-sm ring-1 ring-border/50">
+              <Image
+                src="/logo.webp"
+                alt="Perfect Union"
+                width={36}
+                height={36}
+                className="object-contain p-1"
+                priority
+              />
             </span>
             <span className="hidden flex-col leading-none sm:flex">
               <span className="text-sm font-semibold tracking-tight text-foreground">
@@ -92,7 +99,7 @@ export function DashboardShell({
                     className={cn(
                       "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-[#0C3D22] text-white shadow-sm"
+                        ? "bg-[#1A1E26] text-white shadow-sm"
                         : "text-muted-foreground hover:bg-background hover:text-foreground",
                     )}
                     aria-current={active ? "page" : undefined}
@@ -131,14 +138,14 @@ export function DashboardShell({
                 href={href}
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[10px] font-medium transition-colors",
-                  active ? "text-[#0C3D22]" : "text-muted-foreground hover:text-foreground",
+                  active ? "text-[#1A1E26]" : "text-muted-foreground hover:text-foreground",
                 )}
                 aria-current={active ? "page" : undefined}
               >
                 <span
                   className={cn(
                     "flex size-10 items-center justify-center rounded-xl transition-colors",
-                    active ? "bg-[#0C3D22]/12 text-[#0C3D22]" : "bg-muted/50 text-muted-foreground",
+                    active ? "bg-[#1A1E26]/12 text-[#1A1E26]" : "bg-muted/50 text-muted-foreground",
                   )}
                 >
                   <Icon className="size-5 shrink-0" aria-hidden />

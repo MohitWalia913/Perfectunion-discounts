@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { LockIcon, Loader2Icon, ShieldCheckIcon } from "lucide-react"
+import { LockIcon, Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -109,11 +110,11 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#0C3D22] via-[#0C3D22] to-[#0a2f1a] relative overflow-hidden">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#1A1E26] via-[#1A1E26] to-[#12151c] relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-[#0f5030] rounded-full blur-3xl opacity-20 animate-pulse" />
-        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-[#0f5030] rounded-full blur-3xl opacity-20 animate-pulse [animation-delay:1s]" />
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-[#2a3548] rounded-full blur-3xl opacity-20 animate-pulse" />
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-[#2a3548] rounded-full blur-3xl opacity-20 animate-pulse [animation-delay:1s]" />
       </div>
 
       {/* Main content */}
@@ -122,8 +123,15 @@ export default function AuthPage() {
         <div className="flex justify-center mb-8">
           <div className="relative">
             <div className="absolute inset-0 bg-white/20 rounded-full blur-xl" />
-            <div className="relative bg-white/10 backdrop-blur-sm p-6 rounded-full border border-white/20 shadow-2xl">
-              <ShieldCheckIcon className="size-12 text-white" strokeWidth={1.5} />
+            <div className="relative bg-white/10 backdrop-blur-sm p-5 rounded-full border border-white/20 shadow-2xl">
+              <Image
+                src="/logo.webp"
+                alt="Perfect Union"
+                width={56}
+                height={56}
+                className="size-14 object-contain"
+                priority
+              />
             </div>
           </div>
         </div>

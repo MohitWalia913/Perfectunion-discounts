@@ -159,7 +159,7 @@ export function DiscountDashboardView() {
       type="button"
       variant="outline"
       size="sm"
-      className="gap-2 border-[#0C3D22]/30 text-[#0C3D22] hover:bg-[#0C3D22]/10"
+      className="gap-2 border-[#1A1E26]/30 text-[#1A1E26] hover:bg-[#1A1E26]/10"
       disabled={refreshing || showSkeleton}
       onClick={() => void runFetch(true)}
     >
