@@ -1,12 +1,6 @@
 "use client"
 
 import * as React from "react"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -34,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
   TooltipContent,
@@ -52,23 +45,11 @@ import {
   type DiscountRow,
 } from "@/lib/discount-fields"
 import { collectAllStoreNames } from "@/lib/discount-format"
+import { cn } from "@/lib/utils"
 import { SearchIcon, Trash2Icon, Edit2Icon, SaveIcon, XIcon, ChevronDownIcon } from "lucide-react"
 import { toast } from "sonner"
 
 const PAGE_SIZE = 12
-
-const METHOD_TABS = [
-  { value: "ALL", label: "All" },
-  { value: "PERCENT", label: "Percent" },
-  { value: "DOLLAR", label: "Dollar" },
-  { value: "BOGO", label: "BOGO" },
-  { value: "BUNDLE", label: "Bundle" },
-  { value: "COST", label: "Cost" },
-  { value: "PRICE_AT", label: "Target price" },
-  { value: "OTHER", label: "Other" },
-] as const
-
-type MethodTab = (typeof METHOD_TABS)[number]["value"]
 
 function rowMatchesStatus(row: DiscountRow, includeActive: boolean, includeInactive: boolean): boolean {
   if (!includeActive && !includeInactive) return true
@@ -108,18 +89,22 @@ function rowMatchesStore(row: DiscountRow, selected: Set<string>, allStores: str
 }
 
 export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
-  const [methodTab, setMethodTab] = React.useState<MethodTab>("ALL")
   const [page, setPage] = React.useState(1)
 
   const [includeActive, setIncludeActive] = React.useState(true)
-  const [includeInactive, setIncludeInactive] = React.useState(true)
+  const [includeInactive, setIncludeInactive] = React.useState(false)
+
+  const percentRows = React.useMemo(
+    () => rows.filter((r) => normalizeMethodTab(getDiscountMethod(r)) === "PERCENT"),
+    [rows],
+  )
 
   const [apiStores, setApiStores] = React.useState<string[]>([])
   const [storesLoading, setStoresLoading] = React.useState(false)
   const [storeSearchQuery, setStoreSearchQuery] = React.useState("")
   const allStores = React.useMemo(() => {
-    return apiStores.length > 0 ? apiStores : collectAllStoreNames(rows)
-  }, [apiStores, rows])
+    return apiStores.length > 0 ? apiStores : collectAllStoreNames(percentRows)
+  }, [apiStores, percentRows])
   const [selectedStores, setSelectedStores] = React.useState<Set<string>>(() => new Set())
 
   // New states for bulk delete and search
@@ -171,7 +156,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
   const baseFiltered = React.useMemo(() => {
-    let filtered = rows.filter(
+    let filtered = percentRows.filter(
       (r) =>
         rowMatchesStatus(r, includeActive, includeInactive) &&
         rowMatchesStore(r, selectedStores, allStores),
@@ -193,40 +178,13 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     }
     
     return filtered
-  }, [rows, includeActive, includeInactive, selectedStores, allStores, searchQuery])
+  }, [percentRows, includeActive, includeInactive, selectedStores, allStores, searchQuery])
 
-  const counts = React.useMemo(() => {
-    const c: Record<string, number> = { ALL: baseFiltered.length }
-    for (const row of baseFiltered) {
-      const tab = normalizeMethodTab(getDiscountMethod(row))
-      c[tab] = (c[tab] ?? 0) + 1
-    }
-    return c
-  }, [baseFiltered])
-
-  const visibleMethodTabs = React.useMemo(
-    () => METHOD_TABS.filter((t) => t.value === "ALL" || (counts[t.value] ?? 0) > 0),
-    [counts],
-  )
-
-  React.useEffect(() => {
-    if (methodTab !== "ALL" && (counts[methodTab] ?? 0) === 0) {
-      setMethodTab("ALL")
-    }
-  }, [counts, methodTab])
-
-  const filtered = React.useMemo(() => {
-    if (methodTab === "ALL") return baseFiltered
-    return baseFiltered.filter((row) => {
-      const m = normalizeMethodTab(getDiscountMethod(row))
-      if (methodTab === "OTHER") return m === "OTHER"
-      return m === methodTab
-    })
-  }, [baseFiltered, methodTab])
+  const filtered = baseFiltered
 
   React.useEffect(() => {
     setPage(1)
-  }, [methodTab, baseFiltered.length, rows])
+  }, [baseFiltered.length, searchQuery, includeActive, includeInactive, selectedStores])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageClamped = Math.min(page, totalPages)
@@ -265,6 +223,24 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     const query = storeSearchQuery.toLowerCase()
     return allStores.filter((store) => store.toLowerCase().includes(query))
   }, [allStores, storeSearchQuery])
+
+  const activePercentCount = React.useMemo(
+    () => percentRows.filter((r) => getDiscountActive(r) === true).length,
+    [percentRows],
+  )
+  const inactivePercentCount = React.useMemo(
+    () => percentRows.filter((r) => getDiscountActive(r) === false).length,
+    [percentRows],
+  )
+
+  const statusScopeLabel =
+    includeActive && includeInactive
+      ? "Active & inactive"
+      : includeActive
+        ? "Active only"
+        : includeInactive
+          ? "Inactive only"
+          : "No status"
 
   const handleDeleteClick = (row: DiscountRow) => {
     const id = getDiscountRowId(row)
@@ -761,14 +737,54 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* @ts-expect-error - Base UI Accordion Root supports type prop for single/multiple selection */}
-      <Accordion type="multiple" defaultValue={["filters"]} className="rounded-xl border border-border/80 bg-card px-3 shadow-sm">
-        <AccordionItem value="filters" className="border-0">
-          <AccordionTrigger className="py-3 text-sm font-semibold hover:no-underline">
-            Filters
-          </AccordionTrigger>
-          <AccordionContent className="pb-4">
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Percent discounts</h2>
+            <p className="text-xs text-muted-foreground">
+              Defaults to active offers. Include inactive to see archived. Only percent-type discounts are listed.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {selectedDiscounts.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkEdit}
+                disabled={saving}
+                className="gap-2"
+              >
+                <Edit2Icon className="h-4 w-4" />
+                Edit {selectedDiscounts.size} selected
+              </Button>
+            )}
+            {editingRows.size > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveAll}
+                disabled={saving}
+                className="gap-2 bg-[#0C3D22] hover:bg-[#0C3D22]/90"
+              >
+                <SaveIcon className="h-4 w-4" />
+                Save All ({editingRows.size})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="relative mt-4">
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search discounts by title, amount, or type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 w-full rounded-lg border border-border/80 bg-muted/30 pl-9 pr-3 text-sm shadow-sm transition-colors focus-visible:border-[#0C3D22]/50 focus-visible:ring-2 focus-visible:ring-[#0C3D22]/20"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
               <Popover>
                 <PopoverTrigger
                   render={
@@ -790,7 +806,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                 <PopoverContent align="start" className="z-[100] w-72 bg-popover p-0 shadow-lg">
                   <div className="border-b border-border/60 bg-muted/30 p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">Filter by Status</p>
-                    <p className="text-xs text-muted-foreground">Show active, inactive, or both</p>
+                    <p className="text-xs text-muted-foreground">Active only by default. Check inactive to include archived percent discounts.</p>
                   </div>
                   <div className="bg-popover p-3">
                     <div className="flex flex-col gap-3">
@@ -802,7 +818,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                         <div className="flex flex-1 items-center justify-between">
                           <span className="text-sm font-medium">Active</span>
                           <Badge variant="default" className="h-5 text-[10px]">
-                            {rows.filter(r => getDiscountActive(r) === true).length}
+                            {activePercentCount}
                           </Badge>
                         </div>
                       </label>
@@ -814,7 +830,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                         <div className="flex flex-1 items-center justify-between">
                           <span className="text-sm font-medium">Inactive</span>
                           <Badge variant="secondary" className="h-5 text-[10px]">
-                            {rows.filter(r => getDiscountActive(r) === false).length}
+                            {inactivePercentCount}
                           </Badge>
                         </div>
                       </label>
@@ -822,9 +838,9 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                     <Separator className="my-3" />
                     <Button type="button" variant="outline" size="sm" className="h-8 w-full text-xs font-medium" onClick={() => {
                       setIncludeActive(true)
-                      setIncludeInactive(true)
+                      setIncludeInactive(false)
                     }}>
-                      Reset Filter
+                      Reset to active only
                     </Button>
                   </div>
                 </PopoverContent>
@@ -916,74 +932,28 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                 </Popover>
               ) : null}
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      <div className="flex items-center justify-center rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
-        <p className="text-base font-bold tabular-nums text-foreground">
-          <span className="text-green-600">{filtered.length}</span> shown · <span className="text-blue-600">{baseFiltered.length}</span> filtered · <span className="text-muted-foreground">{rows.length}</span> total
-        </p>
-      </div>
-
-      {/* Search and Bulk Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search discounts by title, amount, or type..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
-          />
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold tabular-nums",
+              "border-[#0C3D22]/30 bg-[#0C3D22]/10 text-[#0C3D22]",
+            )}
+          >
+            {filtered.length} matching
+          </span>
+          <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+            {percentRows.length} percent
+          </span>
+          <span className="inline-flex items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground">
+            {statusScopeLabel}
+          </span>
+          {storeNarrowed ? (
+            <span className="inline-flex items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground tabular-nums">
+              {selectedStores.size} stores
+            </span>
+          ) : null}
         </div>
-        <div className="flex gap-2">
-          {selectedDiscounts.size > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkEdit}
-              disabled={saving}
-              className="gap-2"
-            >
-              <Edit2Icon className="h-4 w-4" />
-              Edit {selectedDiscounts.size} selected
-            </Button>
-          )}
-          {editingRows.size > 0 && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSaveAll}
-              disabled={saving}
-              className="gap-2 bg-[#0C3D22] hover:bg-[#0C3D22]/90"
-            >
-              <SaveIcon className="h-4 w-4" />
-              Save All ({editingRows.size})
-            </Button>
-          )}
-        </div>
-        {/* Bulk delete button hidden - API certificate doesn't have DELETE permissions */}
       </div>
-
-      <Tabs
-        value={methodTab}
-        onValueChange={(v) => setMethodTab(v as MethodTab)}
-        className="w-full gap-3"
-      >
-        <TabsList variant="line" className="h-auto min-h-9 w-full max-w-full flex-wrap justify-start gap-1 p-1">
-          {visibleMethodTabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="shrink-0 px-2.5 text-xs sm:text-sm">
-              {t.label}
-              <span className="ml-1 tabular-nums text-muted-foreground">
-                ({counts[t.value] ?? 0})
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
         <ScrollArea className="h-[min(58vh,calc(100vh-16rem)))] w-full">
           <Table className="w-full min-w-0 table-fixed">

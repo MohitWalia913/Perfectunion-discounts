@@ -1,28 +1,13 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { DashboardShell } from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { ArrowLeftIcon, CheckIcon, Loader2Icon, PlusIcon, SearchIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -418,41 +403,20 @@ export default function CreateDiscountPage() {
   }, [collections, collectionSearch])
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-background/80 backdrop-blur px-4 lg:px-6">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink render={<Link href="/dashboard" />}>Portal</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink render={<Link href="/dashboard" />}>Discounts</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Add Manual Discount</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Button
-            onClick={handleBack}
-            variant="ghost"
-            className="gap-2"
-            disabled={loading}
-          >
-            <ArrowLeftIcon className="size-4" />
-            Back
-          </Button>
-        </header>
-
-        <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
+    <DashboardShell
+      headerActions={
+        <Button
+          onClick={handleBack}
+          variant="ghost"
+          className="gap-2"
+          disabled={loading}
+        >
+          <ArrowLeftIcon className="size-4" />
+          Back
+        </Button>
+      }
+    >
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
           <div className="flex flex-col gap-2">
             <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0C3D22] text-white font-mono text-sm">
@@ -1517,8 +1481,7 @@ export default function CreateDiscountPage() {
               )}
             </Button>
           </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </DashboardShell>
   )
 }

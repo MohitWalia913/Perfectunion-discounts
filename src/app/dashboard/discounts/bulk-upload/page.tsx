@@ -1,25 +1,10 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { DashboardShell } from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import {
   Popover,
   PopoverContent,
@@ -156,13 +141,15 @@ export default function BulkUploadPage() {
       case "FUN_FRIDAY":
         return `FUN FRIDAY ON ${dateMonth} - ${percentage}% OFF`
       case "HOTBOX": {
-        const startDay = row.startDate ? format(row.startDate, "EEE").toUpperCase() : "DAY"
-        const endDay = row.endDate
-          ? format(row.endDate, "EEE").toUpperCase()
+        const startDateMonth = row.startDate
+          ? format(row.startDate, "d MMM").toUpperCase()
+          : "DATE"
+        const endDateMonth = row.endDate
+          ? format(row.endDate, "d MMM").toUpperCase()
           : row.startDate
-            ? format(row.startDate, "EEE").toUpperCase()
-            : "DAY"
-        return `HOTBOX ON ${startDay} TO ${endDay} END - ${percentage}% OFF`
+            ? format(row.startDate, "d MMM").toUpperCase()
+            : "DATE"
+        return `HOTBOX ON ${startDateMonth} TO ${endDateMonth} END - ${percentage}% OFF`
       }
       case "DAILY_SPECIAL":
         return `${firstCollection} - ${percentage}% OFF`
@@ -334,41 +321,20 @@ export default function BulkUploadPage() {
   const validRowsCount = rows.filter(row => row.isValid).length
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-background/80 backdrop-blur px-4 lg:px-6">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink render={<Link href="/dashboard" />}>Portal</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink render={<Link href="/dashboard" />}>Discounts</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Bulk Create</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <Button
-            onClick={() => router.push("/dashboard")}
-            variant="ghost"
-            className="gap-2"
-            disabled={loading}
-          >
-            <ArrowLeftIcon className="size-4" />
-            Back
-          </Button>
-        </header>
-
-        <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
+    <DashboardShell
+      headerActions={
+        <Button
+          onClick={() => router.push("/dashboard")}
+          variant="ghost"
+          className="gap-2"
+          disabled={loading}
+        >
+          <ArrowLeftIcon className="size-4" />
+          Back
+        </Button>
+      }
+    >
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-2">
               <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
@@ -439,7 +405,7 @@ export default function BulkUploadPage() {
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[130px]">
                         End
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px] w-[210px]">
                         Repeat
                       </th>
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[140px]">
@@ -635,14 +601,14 @@ export default function BulkUploadPage() {
                             </PopoverContent>
                           </Popover>
                         </td>
-                        <td className="px-2 py-2">
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-1">
+                        <td className="px-2 py-2 align-middle">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="flex shrink-0 items-center gap-0.5">
                               <Button
                                 variant={row.repeat ? "default" : "outline"}
                                 size="sm"
                                 className={cn(
-                                  "h-7 text-xs px-2",
+                                  "h-7 px-2 text-xs",
                                   row.repeat && "bg-[#0C3D22] hover:bg-[#0C3D22]/90"
                                 )}
                                 onClick={() => updateRow(row.id, { repeat: true, repeatType: "DAY" })}
@@ -653,7 +619,7 @@ export default function BulkUploadPage() {
                                 variant={!row.repeat ? "default" : "outline"}
                                 size="sm"
                                 className={cn(
-                                  "h-7 text-xs px-2",
+                                  "h-7 px-2 text-xs",
                                   !row.repeat && "bg-[#0C3D22] hover:bg-[#0C3D22]/90"
                                 )}
                                 onClick={() => updateRow(row.id, { repeat: false, repeatType: "DO_NOT" })}
@@ -661,22 +627,26 @@ export default function BulkUploadPage() {
                                 No
                               </Button>
                             </div>
-                            {row.repeat && (
+                            {row.repeat ? (
                               <Popover>
-                                <PopoverTrigger className="inline-flex items-center justify-between w-full h-7 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                  <span className="truncate">
+                                <PopoverTrigger
+                                  className={cn(
+                                    "inline-flex h-7 min-w-0 flex-1 items-center justify-between gap-0.5 rounded-md border border-input bg-background px-1.5 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  )}
+                                >
+                                  <span className="min-w-0 truncate">
                                     {row.repeatType === "DAY" && "Daily"}
                                     {row.repeatType === "WEEK" && "Weekly"}
                                     {row.repeatType === "MONTH" && "Monthly"}
                                   </span>
-                                  <ChevronDownIcon className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                                  <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[200px] p-1" align="start">
                                   <div className="space-y-1">
                                     <Button
                                       variant="ghost"
                                       className={cn(
-                                        "w-full justify-start text-xs h-8",
+                                        "h-8 w-full justify-start text-xs",
                                         row.repeatType === "DAY" && "bg-muted"
                                       )}
                                       onClick={() => updateRow(row.id, { repeatType: "DAY" })}
@@ -686,7 +656,7 @@ export default function BulkUploadPage() {
                                     <Button
                                       variant="ghost"
                                       className={cn(
-                                        "w-full justify-start text-xs h-8",
+                                        "h-8 w-full justify-start text-xs",
                                         row.repeatType === "WEEK" && "bg-muted"
                                       )}
                                       onClick={() => updateRow(row.id, { repeatType: "WEEK" })}
@@ -696,7 +666,7 @@ export default function BulkUploadPage() {
                                     <Button
                                       variant="ghost"
                                       className={cn(
-                                        "w-full justify-start text-xs h-8",
+                                        "h-8 w-full justify-start text-xs",
                                         row.repeatType === "MONTH" && "bg-muted"
                                       )}
                                       onClick={() => updateRow(row.id, { repeatType: "MONTH" })}
@@ -706,7 +676,7 @@ export default function BulkUploadPage() {
                                   </div>
                                 </PopoverContent>
                               </Popover>
-                            )}
+                            ) : null}
                           </div>
                         </td>
                         <td className="px-2 py-2">
@@ -871,8 +841,7 @@ export default function BulkUploadPage() {
               )}
             </div>
           )}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </DashboardShell>
   )
 }
