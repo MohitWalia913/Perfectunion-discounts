@@ -4,7 +4,17 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CirclePlusIcon, LayoutGridIcon, UploadIcon } from "lucide-react"
+import {
+  BookOpenIcon,
+  ChevronRightIcon,
+  CirclePlusIcon,
+  HelpCircleIcon,
+  LayoutGridIcon,
+  MegaphoneIcon,
+  Settings2Icon,
+  UploadIcon,
+  UsersIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LogoutSidebarMenuItem } from "@/components/logout-button"
 import {
@@ -19,10 +29,34 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+
+const SETTINGS_BASE = "/dashboard/settings"
+
+const MORE_NAV = [
+  {
+    href: "/dashboard/sales-promo",
+    label: "Sales Promo",
+    icon: MegaphoneIcon,
+  },
+  { href: "/dashboard/users", label: "Users", icon: UsersIcon },
+] as const
+
+const SETTINGS_SUB = [
+  { href: "/dashboard/settings", label: "General" },
+  { href: "/dashboard/settings/preferences", label: "Preferences" },
+] as const
+
+const HELP_NAV = [
+  { href: "/dashboard/how-to-use", label: "How to use", icon: BookOpenIcon },
+  { href: "/dashboard/help", label: "Help", icon: HelpCircleIcon },
+] as const
 
 const SIDEBAR_NAV = [
   { href: "/dashboard", label: "All discounts", icon: LayoutGridIcon },
@@ -62,6 +96,11 @@ function navLinkActive(pathname: string, href: string): boolean {
   return pathname === href
 }
 
+function routeStartsWith(pathname: string, base: string): boolean {
+  if (pathname === base) return true
+  return pathname.startsWith(`${base}/`)
+}
+
 export function DashboardShell({
   children,
   headerActions,
@@ -73,6 +112,21 @@ export function DashboardShell({
   sidebarFooter?: React.ReactNode
 }) {
   const pathname = usePathname() || ""
+  const underSettings = routeStartsWith(pathname, SETTINGS_BASE)
+  const [settingsOpen, setSettingsOpen] = React.useState(underSettings)
+  const prevPathForSettings = React.useRef(pathname)
+
+  React.useEffect(() => {
+    const was = prevPathForSettings.current
+    prevPathForSettings.current = pathname
+    const wasIn = routeStartsWith(was, SETTINGS_BASE)
+    const nowIn = routeStartsWith(pathname, SETTINGS_BASE)
+    if (!wasIn && nowIn) setSettingsOpen(true)
+    if (wasIn && !nowIn) setSettingsOpen(false)
+  }, [pathname])
+
+  const showSettingsSub = settingsOpen || underSettings
+
   const collapseForBulk =
     pathname === "/dashboard/discounts/bulk-upload" ||
     pathname.startsWith("/dashboard/discounts/bulk-upload/")
@@ -136,6 +190,74 @@ export function DashboardShell({
                       </SidebarMenuItem>
                     )
                   })}
+                  {MORE_NAV.map(({ href, label, icon: Icon }) => {
+                    const active = pathname === href
+                    return (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton
+                          isActive={active}
+                          tooltip={label}
+                          render={<Link href={href} />}
+                        >
+                          <Icon aria-hidden />
+                          <span>{label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      type="button"
+                      className="justify-between"
+                      tooltip="Settings"
+                      isActive={underSettings}
+                      onClick={() => setSettingsOpen((o) => !o)}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Settings2Icon aria-hidden className="shrink-0" />
+                        <span className="truncate">Settings</span>
+                      </span>
+                      <ChevronRightIcon
+                        aria-hidden
+                        className={cn(
+                          "size-4 shrink-0 transition-transform",
+                          showSettingsSub && "rotate-90",
+                        )}
+                      />
+                    </SidebarMenuButton>
+                    {showSettingsSub ? (
+                      <SidebarMenuSub>
+                        {SETTINGS_SUB.map(({ href, label }) => {
+                          const subActive = pathname === href
+                          return (
+                            <SidebarMenuSubItem key={href}>
+                              <SidebarMenuSubButton
+                                isActive={subActive}
+                                render={<Link href={href} />}
+                              >
+                                <span>{label}</span>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
+                      </SidebarMenuSub>
+                    ) : null}
+                  </SidebarMenuItem>
+                  {HELP_NAV.map(({ href, label, icon: Icon }) => {
+                    const active = pathname === href
+                    return (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton
+                          isActive={active}
+                          tooltip={label}
+                          render={<Link href={href} />}
+                        >
+                          <Icon aria-hidden />
+                          <span>{label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -157,21 +279,6 @@ export function DashboardShell({
         >
           <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/90 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75 sm:px-4 lg:px-6">
             <SidebarTrigger className="-ml-0.5" />
-            <Link
-              href="/dashboard"
-              className="flex shrink-0 items-center gap-2 rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#1A1E26] focus-visible:ring-offset-2"
-            >
-              <span className="relative flex size-9 shrink-0 overflow-hidden rounded-lg bg-muted/50 shadow-sm ring-1 ring-border/50">
-                <Image
-                  src="/logo.webp"
-                  alt="Perfect Union"
-                  width={36}
-                  height={36}
-                  className="object-contain p-1"
-                  priority
-                />
-              </span>
-            </Link>
             <div className="min-w-0 flex-1" aria-hidden />
             {headerActions ? (
               <div className="flex shrink-0 items-center gap-2">{headerActions}</div>
