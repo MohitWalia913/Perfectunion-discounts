@@ -24,7 +24,7 @@ function useLogout() {
 
       if (res.ok) {
         toast.success("Logged out successfully")
-        router.push("/auth")
+        router.push("/login")
         router.refresh()
       } else {
         toast.error("Logout failed")

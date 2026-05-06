@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { DashboardShell } from "@/components/dashboard-shell"
-import { DashboardPlaceholderPage } from "@/components/dashboard-placeholder-page"
+import { UsersManagement } from "@/components/users-management"
 
 export const metadata: Metadata = {
   title: "Users · Perfect Union",
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function UsersPage() {
   return (
     <DashboardShell>
-      <DashboardPlaceholderPage title="Users" />
+      <UsersManagement />
     </DashboardShell>
   )
 }
