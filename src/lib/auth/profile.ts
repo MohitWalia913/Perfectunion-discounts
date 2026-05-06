@@ -25,10 +25,24 @@ export async function getProfileForUser(
   return data as ProfileRow
 }
 
+/** Current user’s profile via the logged-in session + RLS (no service role key). */
+export async function getSessionProfile(): Promise<ProfileRow | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,role,created_at")
+    .eq("id", user.id)
+    .maybeSingle()
+  if (error || !data) return null
+  return data as ProfileRow
+}
+
 export async function getCurrentProfile(): Promise<ProfileRow | null> {
-  const id = await getSessionUserId()
-  if (!id) return null
-  return getProfileForUser(id)
+  return getSessionProfile()
 }
 
 export function assertRole(

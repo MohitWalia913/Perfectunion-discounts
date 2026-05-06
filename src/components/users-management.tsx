@@ -57,6 +57,13 @@ function generateSecurePassword(): string {
   return out.join("")
 }
 
+type UsersApiPayload = {
+  ok?: boolean
+  error?: string
+  me?: ProfileRow | null
+  users?: ProfileRow[]
+}
+
 export function UsersManagement() {
   const [users, setUsers] = React.useState<ProfileRow[]>([])
   const [me, setMe] = React.useState<ProfileRow | null>(null)
@@ -79,29 +86,46 @@ export function UsersManagement() {
         cache: "no-store",
         credentials: "same-origin",
       })
-      let data: { ok?: boolean; error?: string; me?: ProfileRow; users?: ProfileRow[] }
+      const text = await res.text()
+      let data: UsersApiPayload
       try {
-        data = await res.json()
+        data = JSON.parse(text) as UsersApiPayload
       } catch {
-        setLoadError(res.status === 401 ? "Please sign in again." : "Invalid response from server.")
+        setLoadError(
+          `Invalid response (${res.status}). The server may be misconfigured — check Vercel logs.`,
+        )
         setMe(null)
         setUsers([])
         return
       }
-      if (!data.ok) {
+
+      if (data.me) {
+        setMe(data.me)
+      } else {
+        setMe(null)
+      }
+
+      if (data.ok && Array.isArray(data.users)) {
+        setUsers(data.users)
+        setLoadError(null)
+      } else {
+        setUsers(Array.isArray(data.users) ? data.users : [])
         const msg =
-          data.error ||
-          (res.status === 500
-            ? "Server error. Check that SUPABASE_SERVICE_ROLE_KEY is set on this deployment."
-            : "Failed to load users")
+          data.error ??
+          (res.status === 401
+            ? "Please sign in again."
+            : "Could not load the user list.")
         setLoadError(msg)
-        setMe(null)
-        setUsers([])
-        toast.error(msg)
-        return
+        if (data.me) {
+          toast.message("User list unavailable", {
+            description: msg.includes("SERVICE_ROLE")
+              ? "Add SUPABASE_SERVICE_ROLE_KEY to your deployment to load the table. You can still add users below."
+              : msg,
+          })
+        } else {
+          toast.error(msg)
+        }
       }
-      setMe(data.me ?? null)
-      setUsers(data.users ?? [])
     } catch {
       const msg = "Network error — try again."
       setLoadError(msg)
@@ -204,7 +228,7 @@ export function UsersManagement() {
     }
   }
 
-  if (loading && !me && !loadError) {
+  if (loading && me === null && !loadError) {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground">
         <Loader2Icon className="size-8 animate-spin" aria-hidden />
@@ -212,7 +236,7 @@ export function UsersManagement() {
     )
   }
 
-  if (loadError && !me) {
+  if (!me && loadError) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4 pt-6 lg:p-8">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
@@ -222,16 +246,16 @@ export function UsersManagement() {
           role="alert"
           className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-4 text-sm"
         >
-          <p className="font-medium text-destructive">Could not load users</p>
+          <p className="font-medium text-destructive">Could not verify your account</p>
           <p className="mt-2 text-muted-foreground">{loadError}</p>
           <Button
             type="button"
             variant="outline"
             className="mt-4 gap-2"
-            onClick={() => void load()}
+            onClick={() => window.location.reload()}
           >
             <RefreshCwIcon className="size-4" aria-hidden />
-            Retry
+            Reload page
           </Button>
         </div>
       </div>
@@ -280,6 +304,25 @@ export function UsersManagement() {
         </div>
       </div>
 
+      {loadError && me ? (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm text-foreground"
+        >
+          <p className="font-medium text-amber-900 dark:text-amber-100">
+            Table could not be loaded
+          </p>
+          <p className="mt-1 text-muted-foreground">{loadError}</p>
+          {loadError.includes("SERVICE_ROLE") || loadError.includes("service role") ? (
+            <p className="mt-2 text-muted-foreground">
+              Add <code className="rounded bg-muted px-1 py-0.5 text-xs">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+              to your Vercel project environment variables and redeploy. You can still use{" "}
+              <strong>Add user</strong> below if that key is set for API routes.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-xl border border-border/80">
         <Table>
           <TableHeader>
@@ -295,7 +338,11 @@ export function UsersManagement() {
             {users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                  No users yet. {canInvite ? "Click Add user to invite someone." : ""}
+                  {loadError && me
+                    ? "No rows loaded. Fix the error above or add a user."
+                    : canInvite
+                      ? "No users yet. Click Add user to invite someone."
+                      : "No users to show."}
                 </TableCell>
               </TableRow>
             ) : (

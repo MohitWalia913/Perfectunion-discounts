@@ -6,13 +6,34 @@ import { createServiceRoleClient } from "@/lib/supabase/admin"
 export async function GET() {
   const actor = await getCurrentProfile()
   if (!actor) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ ok: false, error: "Unauthorized", me: null }, { status: 401 })
   }
   if (!["master_admin", "admin", "manager"].includes(actor.role)) {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
+    return NextResponse.json(
+      { ok: false, error: "Forbidden", me: actor },
+      { status: 403 },
+    )
   }
 
-  const admin = createServiceRoleClient()
+  let admin
+  try {
+    admin = createServiceRoleClient()
+  } catch (e) {
+    const msg =
+      e instanceof Error
+        ? e.message
+        : "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `${msg} Add the service role key in Vercel (or .env.local) to load the full user list.`,
+        me: actor,
+        users: [],
+      },
+      { status: 500 },
+    )
+  }
+
   const { data: rows, error } = await admin
     .from("profiles")
     .select("id,email,full_name,role,created_at")
@@ -20,7 +41,12 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { ok: false, error: error.message },
+      {
+        ok: false,
+        error: error.message,
+        me: actor,
+        users: [],
+      },
       { status: 500 },
     )
   }
@@ -84,7 +110,15 @@ export async function POST(request: Request) {
     )
   }
 
-  const admin = createServiceRoleClient()
+  let admin
+  try {
+    admin = createServiceRoleClient()
+  } catch (e) {
+    const msg =
+      e instanceof Error ? e.message : "SUPABASE_SERVICE_ROLE_KEY is not configured"
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+  }
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,

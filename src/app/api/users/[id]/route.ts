@@ -17,7 +17,15 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
   }
 
-  const admin = createServiceRoleClient()
+  let admin
+  try {
+    admin = createServiceRoleClient()
+  } catch (e) {
+    const msg =
+      e instanceof Error ? e.message : "SUPABASE_SERVICE_ROLE_KEY is not configured"
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+  }
+
   const target = await getProfileForUser(targetId, admin)
 
   if (!target) {
