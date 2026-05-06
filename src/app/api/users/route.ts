@@ -70,6 +70,13 @@ export async function POST(request: Request) {
     )
   }
 
+  if (password.length < 6) {
+    return NextResponse.json(
+      { ok: false, error: "Password must be at least 6 characters" },
+      { status: 400 },
+    )
+  }
+
   if (!canCreateRole(actor.role, targetRole)) {
     return NextResponse.json(
       { ok: false, error: "You cannot create users with this role" },

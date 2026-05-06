@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,7 +23,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Loader2Icon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  Loader2Icon,
+  PlusIcon,
+  RefreshCwIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 function roleLabel(r: AppRole): string {
@@ -38,10 +45,23 @@ function roleLabel(r: AppRole): string {
   }
 }
 
+function generateSecurePassword(): string {
+  const chars =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+  const out: string[] = []
+  const buf = new Uint8Array(18)
+  crypto.getRandomValues(buf)
+  for (let i = 0; i < buf.length; i++) {
+    out.push(chars[buf[i]! % chars.length])
+  }
+  return out.join("")
+}
+
 export function UsersManagement() {
   const [users, setUsers] = React.useState<ProfileRow[]>([])
   const [me, setMe] = React.useState<ProfileRow | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
@@ -49,21 +69,45 @@ export function UsersManagement() {
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [fullName, setFullName] = React.useState("")
-  const [role, setRole] = React.useState<AppRole>("manager")
+  const [role, setRole] = React.useState<"admin" | "manager">("manager")
 
   const load = React.useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
-      const res = await fetch("/api/users", { cache: "no-store" })
-      const data = await res.json()
-      if (!data.ok) {
-        toast.error(data.error || "Failed to load users")
+      const res = await fetch("/api/users", {
+        cache: "no-store",
+        credentials: "same-origin",
+      })
+      let data: { ok?: boolean; error?: string; me?: ProfileRow; users?: ProfileRow[] }
+      try {
+        data = await res.json()
+      } catch {
+        setLoadError(res.status === 401 ? "Please sign in again." : "Invalid response from server.")
+        setMe(null)
+        setUsers([])
         return
       }
-      setMe(data.me)
-      setUsers(data.users)
+      if (!data.ok) {
+        const msg =
+          data.error ||
+          (res.status === 500
+            ? "Server error. Check that SUPABASE_SERVICE_ROLE_KEY is set on this deployment."
+            : "Failed to load users")
+        setLoadError(msg)
+        setMe(null)
+        setUsers([])
+        toast.error(msg)
+        return
+      }
+      setMe(data.me ?? null)
+      setUsers(data.users ?? [])
     } catch {
-      toast.error("Failed to load users")
+      const msg = "Network error — try again."
+      setLoadError(msg)
+      setMe(null)
+      setUsers([])
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -73,28 +117,32 @@ export function UsersManagement() {
     void load()
   }, [load])
 
-  const creatableRoles = React.useMemo((): AppRole[] => {
+  const creatableRoles = React.useMemo((): Array<"admin" | "manager"> => {
     if (!me) return []
-    const opts: AppRole[] = []
-    const tryAdd = (r: AppRole) => {
-      if (canCreateRole(me.role, r)) opts.push(r)
-    }
-    tryAdd("admin")
-    tryAdd("manager")
+    const opts: Array<"admin" | "manager"> = []
+    if (canCreateRole(me.role, "admin")) opts.push("admin")
+    if (canCreateRole(me.role, "manager")) opts.push("manager")
     return opts
   }, [me])
 
+  const canInvite = creatableRoles.length > 0
+
   const openCreate = () => {
     setEmail("")
-    setPassword("")
+    setPassword(generateSecurePassword())
     setFullName("")
-    setRole(creatableRoles.includes("manager") ? "manager" : "admin")
+    const first = creatableRoles.includes("manager") ? "manager" : "admin"
+    setRole(first)
     setDialogOpen(true)
   }
 
   const handleCreate = async () => {
     if (!me || !email.trim() || !password) {
       toast.error("Email and password are required")
+      return
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters")
       return
     }
     if (!canCreateRole(me.role, role)) {
@@ -106,6 +154,7 @@ export function UsersManagement() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           email: email.trim(),
           password,
@@ -118,7 +167,10 @@ export function UsersManagement() {
         toast.error(data.error || "Create failed")
         return
       }
-      toast.success("User created")
+      toast.success("User created", {
+        description:
+          "They can sign in immediately — no email confirmation required. Share the password securely.",
+      })
       setDialogOpen(false)
       void load()
     } catch {
@@ -134,7 +186,10 @@ export function UsersManagement() {
     if (!confirm(`Remove access for ${row.email ?? row.id}?`)) return
     setDeletingId(row.id)
     try {
-      const res = await fetch(`/api/users/${row.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/users/${row.id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      })
       const data = await res.json()
       if (!data.ok) {
         toast.error(data.error || "Delete failed")
@@ -149,7 +204,7 @@ export function UsersManagement() {
     }
   }
 
-  if (loading && !me) {
+  if (loading && !me && !loadError) {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground">
         <Loader2Icon className="size-8 animate-spin" aria-hidden />
@@ -157,28 +212,72 @@ export function UsersManagement() {
     )
   }
 
+  if (loadError && !me) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-6 lg:p-8">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          Users
+        </h1>
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-4 text-sm"
+        >
+          <p className="font-medium text-destructive">Could not load users</p>
+          <p className="mt-2 text-muted-foreground">{loadError}</p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4 gap-2"
+            onClick={() => void load()}
+          >
+            <RefreshCwIcon className="size-4" aria-hidden />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Users
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage portal accounts. Managers can view only; admins can remove managers;
-            master admin manages admins and managers.
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Invite teammates with an <strong className="font-medium text-foreground">Admin</strong> or{" "}
+            <strong className="font-medium text-foreground">Manager</strong> role. New accounts are{" "}
+            <strong className="font-medium text-foreground">confirmed automatically</strong> so they can
+            sign in right away. Managers can only view this list; admins can remove managers; master
+            admin can manage admins and managers.
           </p>
         </div>
-        {creatableRoles.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             type="button"
-            className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
-            onClick={openCreate}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => void load()}
+            disabled={loading}
           >
-            <PlusIcon className="size-4" aria-hidden />
-            Add user
+            <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} aria-hidden />
+            Refresh
           </Button>
-        ) : null}
+          {canInvite ? (
+            <Button
+              type="button"
+              className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
+              onClick={openCreate}
+            >
+              <PlusIcon className="size-4" aria-hidden />
+              Add user
+            </Button>
+          ) : me?.role === "manager" ? (
+            <span className="text-xs text-muted-foreground">View only</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border/80">
@@ -193,55 +292,64 @@ export function UsersManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((u) => {
-              const canDel = me ? canDeleteUser(me, u) : false
-              return (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.email ?? "—"}</TableCell>
-                  <TableCell>{u.full_name || "—"}</TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        u.role === "master_admin" &&
-                          "bg-[#1A1E26]/10 text-[#1A1E26]",
-                        u.role === "admin" && "bg-blue-500/10 text-blue-800 dark:text-blue-300",
-                        u.role === "manager" && "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {roleLabel(u.role)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(u.created_at).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {canDel ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        disabled={deletingId === u.id}
-                        onClick={() => void handleDelete(u)}
-                      >
-                        {deletingId === u.id ? (
-                          <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                        ) : (
-                          <Trash2Icon className="size-4" aria-hidden />
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                  No users yet. {canInvite ? "Click Add user to invite someone." : ""}
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((u) => {
+                const canDel = me ? canDeleteUser(me, u) : false
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.email ?? "—"}</TableCell>
+                    <TableCell>{u.full_name || "—"}</TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          u.role === "master_admin" &&
+                            "bg-[#1A1E26]/10 text-[#1A1E26]",
+                          u.role === "admin" &&
+                            "bg-blue-500/10 text-blue-800 dark:text-blue-300",
+                          u.role === "manager" && "bg-muted text-muted-foreground",
                         )}
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
+                      >
+                        {roleLabel(u.role)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(u.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {canDel ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={deletingId === u.id}
+                          onClick={() => void handleDelete(u)}
+                        >
+                          {deletingId === u.id ? (
+                            <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                          ) : (
+                            <Trash2Icon className="size-4" aria-hidden />
+                          )}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
           </TableBody>
         </Table>
       </div>
@@ -250,6 +358,10 @@ export function UsersManagement() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add user</DialogTitle>
+            <DialogDescription>
+              Creates a Supabase auth account with <strong>email already confirmed</strong>, so they
+              can sign in immediately. Send them the temporary password through a secure channel.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
@@ -264,14 +376,38 @@ export function UsersManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-pass">Temporary password</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="new-pass">Temporary password</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto gap-1 px-2 py-1 text-xs"
+                  onClick={() => {
+                    const p = generateSecurePassword()
+                    setPassword(p)
+                    toast.message("New password generated", {
+                      description: "Copy it now — it won’t be shown again after you leave.",
+                    })
+                  }}
+                >
+                  <SparklesIcon className="size-3.5" aria-hidden />
+                  Generate
+                </Button>
+              </div>
               <Input
                 id="new-pass"
-                type="password"
+                type="text"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimum 6 characters"
+                className="font-mono text-sm"
               />
+              <p className="text-xs text-muted-foreground">
+                Supabase requires at least 6 characters. User can change password later if you enable
+                reset in your Supabase project.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-name">Full name (optional)</Label>
@@ -291,7 +427,9 @@ export function UsersManagement() {
                   "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
                 )}
                 value={role}
-                onChange={(e) => setRole(e.target.value as AppRole)}
+                onChange={(e) =>
+                  setRole(e.target.value as "admin" | "manager")
+                }
               >
                 {creatableRoles.map((r) => (
                   <option key={r} value={r}>
@@ -317,7 +455,7 @@ export function UsersManagement() {
                   Creating…
                 </>
               ) : (
-                "Create"
+                "Create user"
               )}
             </Button>
           </DialogFooter>
