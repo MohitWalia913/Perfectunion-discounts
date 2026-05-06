@@ -4,15 +4,19 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { LogOutIcon, Loader2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
 import { toast } from "sonner"
 
-export function LogoutButton() {
+function useLogout() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(false)
 
-  const handleLogout = async () => {
+  const handleLogout = React.useCallback(async () => {
     setLoading(true)
-    
+
     try {
       const res = await fetch("/api/auth/logout", {
         method: "POST",
@@ -30,7 +34,13 @@ export function LogoutButton() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  return { loading, handleLogout }
+}
+
+export function LogoutButton() {
+  const { loading, handleLogout } = useLogout()
 
   return (
     <Button
@@ -47,5 +57,26 @@ export function LogoutButton() {
       )}
       Logout
     </Button>
+  )
+}
+
+export function LogoutSidebarMenuItem() {
+  const { loading, handleLogout } = useLogout()
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        onClick={handleLogout}
+        disabled={loading}
+        tooltip="Logout"
+      >
+        {loading ? (
+          <Loader2Icon className="size-4 animate-spin" />
+        ) : (
+          <LogOutIcon className="size-4" />
+        )}
+        <span>Logout</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 }

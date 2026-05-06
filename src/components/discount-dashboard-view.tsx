@@ -6,6 +6,10 @@ import { DiscountManagerClient } from "@/components/discount-manager-client"
 import { DiscountManagerSkeleton } from "@/components/discount-manager-skeleton"
 import { Button } from "@/components/ui/button"
 import {
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
+import {
   DISCOUNT_CACHE_TTL_MS,
   isDiscountCacheStale,
   readDiscountCache,
@@ -154,22 +158,21 @@ export function DiscountDashboardView() {
       </p>
     ) : null
 
-  const refreshControl = (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className="gap-2 border-[#1A1E26]/30 text-[#1A1E26] hover:bg-[#1A1E26]/10"
-      disabled={refreshing || showSkeleton}
-      onClick={() => void runFetch(true)}
-    >
-      <RefreshCwIcon className={cn("size-4", refreshing && "animate-spin")} aria-hidden />
-      Refresh
-    </Button>
+  const refreshSidebar = (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip="Refresh discounts"
+        disabled={refreshing || showSkeleton}
+        onClick={() => void runFetch(true)}
+      >
+        <RefreshCwIcon className={cn("size-4", refreshing && "animate-spin")} aria-hidden />
+        <span>Refresh</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 
   return (
-    <DashboardShell headerActions={refreshControl}>
+    <DashboardShell sidebarFooter={refreshSidebar}>
       <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
