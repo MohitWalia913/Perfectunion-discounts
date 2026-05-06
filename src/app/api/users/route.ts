@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server"
 import { canCreateRole } from "@/lib/auth/permissions"
-import type { AppRole } from "@/lib/auth/types"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
-
-function validRole(x: unknown): x is AppRole {
-  return x === "master_admin" || x === "admin" || x === "manager"
-}
 
 export async function GET() {
   const actor = await getCurrentProfile()
@@ -61,9 +56,16 @@ export async function POST(request: Request) {
     typeof body.full_name === "string" ? body.full_name.trim() : ""
   const targetRole = body.role
 
-  if (!email || !password || !validRole(targetRole)) {
+  if (
+    !email ||
+    !password ||
+    (targetRole !== "admin" && targetRole !== "manager")
+  ) {
     return NextResponse.json(
-      { ok: false, error: "email, password, and valid role are required" },
+      {
+        ok: false,
+        error: "email, password, and role (admin or manager) are required",
+      },
       { status: 400 },
     )
   }
