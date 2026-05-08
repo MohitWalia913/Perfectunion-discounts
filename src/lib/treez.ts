@@ -390,6 +390,30 @@ export async function deleteServiceDiscount(
   return body
 }
 
+/**
+ * DELETE `/{ver}/{discountId}` per Treez discount service OpenAPI (`/service/discount`).
+ * On 403, attempts PATCH deactivate — some certificates disallow hard deletes.
+ */
+export async function deleteServiceDiscountOrFallback(
+  env: TreezEnv,
+  discountId: string,
+): Promise<
+  | { outcome: "deleted"; body: unknown }
+  | { outcome: "deactivated"; body: unknown }
+> {
+  try {
+    const body = await deleteServiceDiscount(env, discountId)
+    return { outcome: "deleted", body }
+  } catch (e) {
+    const err = e as Error & { status?: number }
+    if (err.status === 403) {
+      const body = await deactivateServiceDiscount(env, discountId)
+      return { outcome: "deactivated", body }
+    }
+    throw e
+  }
+}
+
 export async function deactivateServiceDiscount(
   env: TreezEnv,
   discountId: string,

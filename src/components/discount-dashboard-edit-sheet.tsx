@@ -27,20 +27,31 @@ import { getDiscountRowId } from "@/lib/discount-fields"
 import type {
   CollectionEntityDraft,
   DiscountEditDraft,
-  EditConditionKey,
   StoreEntityDraft,
 } from "@/lib/discount-edit-helpers"
 import {
-  EDIT_CONDITION_KEYS,
   mergeRowWithEditDraft,
   rowToEditDraft,
   sanitizeDiscountPayload,
 } from "@/lib/discount-edit-helpers"
+import { summarizeConditions } from "@/lib/discount-format"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, ChevronDownIcon, Loader2Icon } from "lucide-react"
+import { CalendarIcon, ChevronDownIcon, Loader2Icon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-const CONDITION_LABELS: Record<EditConditionKey, string> = {
+/** Same flag keys as bulk upload payload; shown read-only (full `conditions` object is preserved on save). */
+const CONDITION_FLAG_KEYS = [
+  "customerCapEnabled",
+  "customerLimitEnabled",
+  "purchaseMinimumEnabled",
+  "customerEventEnabled",
+  "itemLimitEnabled",
+  "customerLicenseTypeEnabled",
+  "packageAgeEnabled",
+  "fulfillmentTypesEnabled",
+] as const
+
+const CONDITION_LABELS: Record<(typeof CONDITION_FLAG_KEYS)[number], string> = {
   customerCapEnabled: "Customer cap",
   customerLimitEnabled: "Customer limit",
   purchaseMinimumEnabled: "Purchase minimum",
@@ -49,6 +60,11 @@ const CONDITION_LABELS: Record<EditConditionKey, string> = {
   customerLicenseTypeEnabled: "Customer license type",
   packageAgeEnabled: "Package age",
   fulfillmentTypesEnabled: "Fulfillment types",
+}
+
+function conditionFlagOn(conditions: unknown, key: string): boolean {
+  if (!conditions || typeof conditions !== "object") return false
+  return (conditions as Record<string, unknown>)[key] === true
 }
 
 function parseDraftDate(iso: string): Date | undefined {
@@ -71,6 +87,8 @@ export function DiscountDashboardEditSheet(props: {
   catalogsLoading: boolean
   saving: boolean
   onSavingChange: (v: boolean) => void
+  /** Opens the existing delete confirmation flow (parent supplies row id). */
+  onRequestDelete?: () => void
 }) {
   const {
     open,
@@ -81,6 +99,7 @@ export function DiscountDashboardEditSheet(props: {
     catalogsLoading,
     saving,
     onSavingChange,
+    onRequestDelete,
   } = props
 
   const [draft, setDraft] = React.useState<DiscountEditDraft | null>(null)
@@ -199,16 +218,16 @@ export function DiscountDashboardEditSheet(props: {
       <SheetContent
         side="right"
         className={cn(
-          "flex h-full flex-col gap-0 p-0 sm:max-w-lg md:w-full md:max-w-xl",
+          "flex h-full min-h-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-lg md:w-full md:max-w-xl",
           "data-[side=right]:border-l data-[side=right]:shadow-xl",
         )}
         showCloseButton
       >
-        <SheetHeader className="gap-2 border-b border-border/80 px-4 py-4 text-left md:px-6">
+        <SheetHeader className="shrink-0 gap-2 border-b border-border/80 px-4 py-4 text-left md:px-6">
           <SheetTitle>Edit discount</SheetTitle>
           <SheetDescription>
-            Update locations, collections, dates, and service conditions — same payload shape as bulk
-            create.
+            Update locations, collections, and schedule. Rule conditions from Treez stay on the record
+            unchanged when you save (same idea as bulk create).
           </SheetDescription>
         </SheetHeader>
 
@@ -270,8 +289,11 @@ export function DiscountDashboardEditSheet(props: {
                       </span>
                       <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
                     </PopoverTrigger>
-                    <PopoverContent className="w-[340px] p-0" align="start">
-                      <div className="border-b p-2">
+                    <PopoverContent
+                      align="start"
+                      className="z-[210] flex w-[min(calc(100vw-1.5rem),340px)] max-h-[min(70vh,360px)] flex-col gap-0 overflow-hidden p-0 shadow-lg"
+                    >
+                      <div className="shrink-0 border-b border-border bg-popover px-2 py-2">
                         <Input
                           placeholder="Search stores…"
                           value={storeSearch}
@@ -279,8 +301,8 @@ export function DiscountDashboardEditSheet(props: {
                           className="h-8 text-sm"
                         />
                       </div>
-                      <ScrollArea className="max-h-[240px]">
-                        <div className="flex flex-col gap-px p-2">
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+                        <div className="flex flex-col gap-px">
                           {filteredCatalogStores.map((s) => {
                             const sel = draft.stores.some((x) => x.id === s.id)
                             return (
@@ -297,14 +319,14 @@ export function DiscountDashboardEditSheet(props: {
                             )
                           })}
                         </div>
-                      </ScrollArea>
-                      {filteredCatalogStores.length === 0 ? (
-                        <p className="p-4 text-xs text-muted-foreground">
-                          {catalogStores.length === 0
-                            ? "No stores loaded from Treez yet."
-                            : "No matching stores."}
-                        </p>
-                      ) : null}
+                        {filteredCatalogStores.length === 0 ? (
+                          <p className="py-6 text-center text-xs text-muted-foreground">
+                            {catalogStores.length === 0
+                              ? "No stores loaded from Treez yet."
+                              : "No matching stores."}
+                          </p>
+                        ) : null}
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -328,8 +350,11 @@ export function DiscountDashboardEditSheet(props: {
                       </span>
                       <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
                     </PopoverTrigger>
-                    <PopoverContent className="w-[340px] p-0" align="start">
-                      <div className="border-b p-2">
+                    <PopoverContent
+                      align="start"
+                      className="z-[210] flex w-[min(calc(100vw-1.5rem),340px)] max-h-[min(70vh,360px)] flex-col gap-0 overflow-hidden p-0 shadow-lg"
+                    >
+                      <div className="shrink-0 border-b border-border bg-popover px-2 py-2">
                         <Input
                           placeholder="Search collections…"
                           value={collectionSearch}
@@ -337,8 +362,8 @@ export function DiscountDashboardEditSheet(props: {
                           className="h-8 text-sm"
                         />
                       </div>
-                      <ScrollArea className="max-h-[240px]">
-                        <div className="flex flex-col gap-px p-2">
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+                        <div className="flex flex-col gap-px">
                           {filteredCatalogCollections.map((c) => {
                             const sel = draft.collections.some((x) => x.id === c.id)
                             return (
@@ -355,14 +380,14 @@ export function DiscountDashboardEditSheet(props: {
                             )
                           })}
                         </div>
-                      </ScrollArea>
-                      {filteredCatalogCollections.length === 0 ? (
-                        <p className="p-4 text-xs text-muted-foreground">
-                          {catalogCollections.length === 0
-                            ? "No collections loaded from Treez yet."
-                            : "No matching collections."}
-                        </p>
-                      ) : null}
+                        {filteredCatalogCollections.length === 0 ? (
+                          <p className="py-6 text-center text-xs text-muted-foreground">
+                            {catalogCollections.length === 0
+                              ? "No collections loaded from Treez yet."
+                              : "No matching collections."}
+                          </p>
+                        ) : null}
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -390,7 +415,10 @@ export function DiscountDashboardEditSheet(props: {
                           ? draft.startDate
                           : "Pick date (required for save)"}
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="z-[210] w-auto overflow-hidden p-0"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={parseDraftDate(draft.startDate)}
@@ -423,7 +451,10 @@ export function DiscountDashboardEditSheet(props: {
                         <CalendarIcon className="mr-2 size-4 shrink-0" />
                         {draft.endDate.trim() ? draft.endDate : "Pick date"}
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="z-[210] w-auto overflow-hidden p-0"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={parseDraftDate(draft.endDate)}
@@ -448,59 +479,83 @@ export function DiscountDashboardEditSheet(props: {
 
                 <Separator />
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Conditions
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {EDIT_CONDITION_KEYS.map((k) => (
-                      <label
-                        key={k}
-                        className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2"
-                      >
-                        <Checkbox
-                          checked={draft.conditions[k]}
-                          onCheckedChange={(v) =>
-                            setDraft({
-                              ...draft,
-                              conditions: { ...draft.conditions, [k]: v === true },
-                            })
-                          }
-                          className="mt-0.5"
-                        />
-                        <span className="text-sm leading-snug">{CONDITION_LABELS[k]}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {row?.conditions && typeof row.conditions === "object" ? (
+                    <>
+                      <p className="text-sm leading-snug text-foreground">
+                        {summarizeConditions(row.conditions as Record<string, unknown>)}
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {CONDITION_FLAG_KEYS.map((k) => (
+                          <div
+                            key={k}
+                            className="flex items-start gap-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2"
+                          >
+                            <Checkbox
+                              checked={conditionFlagOn(row.conditions, k)}
+                              disabled
+                              className="mt-0.5 pointer-events-none opacity-100"
+                            />
+                            <span className="text-sm leading-snug">{CONDITION_LABELS[k]}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Same layout as bulk create; flags are read-only here. Saving keeps the full
+                        conditions object from Treez (including any nested rules).
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No conditions on this discount.</p>
+                  )}
                 </div>
               </div>
             </ScrollArea>
 
-            <SheetFooter className="border-t border-border/80 px-4 py-4 md:px-6">
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={saving || catalogsLoading}
-                  onClick={() => void submit()}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2Icon className="size-4 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save changes"
-                  )}
-                </Button>
+            <SheetFooter className="shrink-0 border-t border-border/80 px-4 py-4 md:px-6">
+              <div className="flex w-full flex-col gap-3">
+                {onRequestDelete ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto sm:self-start"
+                    disabled={
+                      saving || !row || !getDiscountRowId(row)
+                    }
+                    onClick={() => onRequestDelete()}
+                  >
+                    <Trash2Icon className="mr-2 size-4" />
+                    Delete discount
+                  </Button>
+                ) : null}
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                    disabled={saving || catalogsLoading}
+                    onClick={() => void submit()}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2Icon className="size-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save changes"
+                    )}
+                  </Button>
+                </div>
               </div>
             </SheetFooter>
           </>

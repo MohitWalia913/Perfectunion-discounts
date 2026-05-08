@@ -80,7 +80,7 @@ function summarizeSchedule(s: Record<string, unknown>): string {
   return parts.join(" · ") || "Scheduled"
 }
 
-function summarizeConditions(cond: Record<string, unknown>): string {
+export function summarizeConditions(cond: Record<string, unknown>): string {
   const bogo = cond.bogoConditions
   if (bogo && typeof bogo === "object") {
     const b = bogo as Record<string, unknown>

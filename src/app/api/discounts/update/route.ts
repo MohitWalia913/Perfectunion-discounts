@@ -18,6 +18,14 @@ export async function PUT(request: Request) {
     const errors = []
 
     for (const discount of discounts) {
+      if (!discount?.id) {
+        errors.push({
+          id: discount?.id ?? "(missing)",
+          success: false,
+          error: "Each discount payload must include `id` (Treez PUT /v3/discount updates by id)",
+        })
+        continue
+      }
       try {
         console.log("Updating discount:", {
           id: discount.id,
@@ -25,7 +33,7 @@ export async function PUT(request: Request) {
           amount: discount.amount,
         })
         console.log("Full discount payload:", JSON.stringify(discount, null, 2))
-        
+
         const data = await updateServiceDiscount(env, discount)
         
         console.log("Update successful for discount:", discount.id)

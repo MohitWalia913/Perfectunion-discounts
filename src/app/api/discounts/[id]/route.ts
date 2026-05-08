@@ -1,4 +1,4 @@
-import { deleteServiceDiscount, deactivateServiceDiscount, getTreezEnv } from "@/lib/treez"
+import { deleteServiceDiscountOrFallback, getTreezEnv } from "@/lib/treez"
 import { NextResponse } from "next/server"
 
 export async function DELETE(
@@ -19,30 +19,17 @@ export async function DELETE(
     
     const env = getTreezEnv()
     
-    // Try DELETE first
-    try {
-      const result = await deleteServiceDiscount(env, id)
-      console.log("DELETE /api/discounts/[id] - Delete success:", result)
-      return NextResponse.json(result)
-    } catch (deleteError: any) {
-      // If DELETE fails with 403 (likely AWS Sig V4 auth issue), try deactivating instead
-      if (deleteError.status === 403) {
-        console.log("DELETE /api/discounts/[id] - DELETE not supported, trying PATCH to deactivate")
-        
-        try {
-          const deactivateResult = await deactivateServiceDiscount(env, id)
-          console.log("DELETE /api/discounts/[id] - Deactivate success:", deactivateResult)
-          return NextResponse.json({
-            ...(typeof deactivateResult === 'object' && deactivateResult !== null ? deactivateResult : {}),
-            _note: "Discount was deactivated (not deleted) due to API limitations"
-          })
-        } catch (deactivateError: any) {
-          console.error("DELETE /api/discounts/[id] - Both DELETE and PATCH failed")
-          throw deactivateError
-        }
-      }
-      throw deleteError
+    const { outcome, body } = await deleteServiceDiscountOrFallback(env, id)
+    console.log("DELETE /api/discounts/[id] - Success:", outcome, body)
+
+    if (outcome === "deactivated") {
+      return NextResponse.json({
+        ...(typeof body === "object" && body !== null ? body : {}),
+        _note: "Discount was deactivated (not deleted) due to API limitations",
+      })
     }
+
+    return NextResponse.json(body ?? {})
   } catch (e) {
     const err = e as Error & { status?: number; body?: unknown }
     

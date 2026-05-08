@@ -863,6 +863,14 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
         catalogsLoading={storesLoading || collectionsLoading}
         saving={sheetSaving}
         onSavingChange={setSheetSaving}
+        onRequestDelete={
+          sheetRow
+            ? () => {
+                handleDeleteClick(sheetRow)
+                setEditSheetOpen(false)
+              }
+            : undefined
+        }
       />
 
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>

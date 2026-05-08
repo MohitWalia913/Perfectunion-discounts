@@ -6,20 +6,6 @@ import {
   getScheduleStartDateISO,
 } from "@/lib/discount-fields"
 
-/** Matches bulk-create payload shape for Treez */
-export const EDIT_CONDITION_KEYS = [
-  "customerCapEnabled",
-  "customerLimitEnabled",
-  "purchaseMinimumEnabled",
-  "customerEventEnabled",
-  "itemLimitEnabled",
-  "customerLicenseTypeEnabled",
-  "packageAgeEnabled",
-  "fulfillmentTypesEnabled",
-] as const
-
-export type EditConditionKey = (typeof EDIT_CONDITION_KEYS)[number]
-
 export type StoreEntityDraft = { id: string; name: string }
 
 export type CollectionEntityDraft = { id: string; name: string }
@@ -32,24 +18,6 @@ export type DiscountEditDraft = {
   /** YYYY-MM-DD or empty */
   startDate: string
   endDate: string
-  conditions: Record<EditConditionKey, boolean>
-}
-
-export function defaultConditionFlags(): Record<EditConditionKey, boolean> {
-  const o = {} as Record<EditConditionKey, boolean>
-  for (const k of EDIT_CONDITION_KEYS) o[k] = false
-  return o
-}
-
-function conditionFlagsFromRow(row: DiscountRow): Record<EditConditionKey, boolean> {
-  const base = defaultConditionFlags()
-  const c = row.conditions
-  if (!c || typeof c !== "object") return base
-  const o = c as Record<string, unknown>
-  for (const k of EDIT_CONDITION_KEYS) {
-    if (typeof o[k] === "boolean") base[k] = o[k] as boolean
-  }
-  return base
 }
 
 function resolveStoreId(
@@ -133,7 +101,6 @@ export function rowToEditDraft(
     collections,
     startDate: start,
     endDate: end,
-    conditions: conditionFlagsFromRow(row),
   }
 }
 
@@ -193,12 +160,8 @@ export function mergeRowWithEditDraft(row: DiscountRow, draft: DiscountEditDraft
     ...rest
   }: Record<string, unknown>) => rest
 
-  const conditionsOut: Record<string, unknown> = {
-    ...stripCondMeta({ ...prevConditions }),
-  }
-  for (const k of EDIT_CONDITION_KEYS) {
-    conditionsOut[k] = draft.conditions[k]
-  }
+  /** Preserve Treez rule payload; bulk create does not round-trip edits to these keys here. */
+  const conditionsOut: Record<string, unknown> = stripCondMeta({ ...prevConditions })
 
   const updatedDiscount: Record<string, unknown> = {
     ...(cleanRow as Record<string, unknown>),
