@@ -214,6 +214,7 @@ export function DashboardShell({
         <SidebarInset
           className={cn(
             "pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0",
+            "min-h-[100dvh] bg-gradient-to-br from-primary/[0.07] via-background to-background",
           )}
         >
           <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/90 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75 sm:px-4 lg:px-6">
