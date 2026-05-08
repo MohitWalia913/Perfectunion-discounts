@@ -49,6 +49,8 @@ export async function POST(request: Request) {
     },
   })
   session.allow(room, session.FULL_ACCESS)
+  // TipTap threaded comments use the Comments API explicitly.
+  session.allow(room, ["comments:read", "comments:write", "room:presence:write"])
   const auth = await session.authorize()
   if (auth.error) {
     return new NextResponse(auth.error.message, { status: 500 })

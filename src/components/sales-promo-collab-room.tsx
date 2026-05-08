@@ -9,16 +9,22 @@ import {
   useOthers,
   useSelf,
   useSyncStatus,
+  useThreads,
 } from "@liveblocks/react/suspense"
 import {
+  AnchoredThreads,
+  FloatingComposer,
+  FloatingThreads,
   Toolbar,
   useIsEditorReady,
   useLiveblocksExtension,
 } from "@liveblocks/react-tiptap"
 import "@liveblocks/react-tiptap/styles.css"
-import { EditorContent, useEditor } from "@tiptap/react"
+import "@liveblocks/react-ui/styles.css"
+import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
+import { TableKit } from "@tiptap/extension-table/kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -27,7 +33,7 @@ import {
   SheetContent,
   SheetFooter,
 } from "@/components/ui/sheet"
-import { Loader2Icon, ArrowLeftIcon, Share2Icon } from "lucide-react"
+import { Loader2Icon, ArrowLeftIcon, Share2Icon, Table2Icon } from "lucide-react"
 import { toast } from "sonner"
 import type { ProfileRow } from "@/lib/auth/types"
 import { salesPromoRoomId } from "@/lib/sales-promo/room"
@@ -138,13 +144,32 @@ function CollaborationHud() {
   )
 }
 
+function LiveblocksThreadsUI({ editor }: { editor: Editor }) {
+  const { threads } = useThreads()
+  const list = threads ?? []
+
+  return (
+    <>
+      <FloatingComposer editor={editor} className="z-[50]" />
+      <FloatingThreads editor={editor} threads={list} className="z-[50] w-[min(100vw-2rem,380px)]" />
+      <AnchoredThreads editor={editor} threads={list} className="z-[45]" />
+    </>
+  )
+}
+
 function SalesPromoTiptap() {
-  const liveblocks = useLiveblocksExtension()
+  const liveblocks = useLiveblocksExtension({
+    comments: true,
+    mentions: false,
+  })
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       liveblocks,
       StarterKit.configure({ undoRedo: false }),
+      TableKit.configure({
+        table: { resizable: true },
+      }),
       Placeholder.configure({ placeholder: "Start writing your promo…" }),
     ],
   })
@@ -160,15 +185,32 @@ function SalesPromoTiptap() {
   }
 
   return (
-    <div className="flex min-h-[min(60vh,900px)] flex-col">
-      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur md:px-4">
-        <Toolbar editor={editor} />
+    <div className="relative flex min-h-[min(60vh,900px)] flex-col">
+      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur md:px-4">
+        <Toolbar
+          editor={editor}
+          after={
+            <>
+              <Toolbar.Separator />
+              <Toolbar.Button
+                name="Insert table"
+                icon={<Table2Icon className="size-4" />}
+                onClick={() =>
+                  editor
+                    .chain()
+                    .focus()
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                    .run()
+                }
+              />
+            </>
+          }
+        />
       </div>
       <EditorContent
         editor={editor}
         className={cn(
           "max-w-none px-4 py-6 sm:px-8 sm:py-10",
-          // Starter-kit-like doc typography without requiring @tailwindcss/typography
           "[&_.ProseMirror]:min-h-[min(52vh,820px)] [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-7",
           "[&_.ProseMirror]:text-foreground/90 [&_.ProseMirror]:outline-none",
           "[&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:tracking-tight",
@@ -177,8 +219,13 @@ function SalesPromoTiptap() {
           "[&_.ProseMirror_p]:my-2",
           "[&_.ProseMirror_ul]:my-3 [&_.ProseMirror_ol]:my-3",
           "[&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-muted-foreground",
+          // Tables
+          "[&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-hidden [&_.ProseMirror_table]:rounded-lg [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border",
+          "[&_.ProseMirror_td]:min-w-[4.5rem] [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
+          "[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted/45 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold",
         )}
       />
+      <LiveblocksThreadsUI editor={editor} />
     </div>
   )
 }
@@ -203,21 +250,21 @@ function SharingPanel({
   if (!canManage) return null
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold tracking-tight">Sharing</h2>
-        <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <h2 className="text-base font-semibold tracking-tight">Sharing</h2>
+        <p className="text-muted-foreground text-xs leading-relaxed">
           Managers only see docs you share with them.
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <div className="grid min-w-0 flex-1 gap-1">
-          <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+      <div className="flex flex-col gap-3">
+        <div className="space-y-1.5">
+          <span className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
             Add people
           </span>
           <select
-            className="border-border bg-background placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:border-ring h-10 w-full rounded-lg border px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="border-border bg-background ring-offset-background focus-visible:border-ring placeholder:text-muted-foreground h-11 w-full rounded-lg border px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2"
             value={sharePick}
             onChange={(e) => setSharePick(e.target.value)}
           >
@@ -231,13 +278,13 @@ function SharingPanel({
         </div>
         <Button
           type="button"
-          variant="secondary"
-          size="sm"
-          className="shrink-0"
+          variant="default"
+          size="default"
+          className="h-11 w-full font-semibold shadow-sm sm:w-auto sm:min-w-[7.5rem]"
           disabled={!sharePick}
           onClick={onShare}
         >
-          Share
+          Invite
         </Button>
       </div>
 
@@ -417,19 +464,19 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
 
   return (
     <div className={cn("bg-muted/20 flex min-h-0 flex-1 flex-col")}>
-      <header className="border-border/80 sticky top-0 z-30 shrink-0 border-b bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4 lg:px-6">
-          <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center">
+      <header className="border-border/80 sticky top-0 z-30 shrink-0 border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-3 py-4 sm:px-5 lg:[grid-template-columns:1fr_auto] lg:items-center lg:gap-8 lg:px-8">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             <Link
               href="/dashboard/sales-promo"
               aria-label="Back to Sales Promo"
-              className="border-border/80 hover:bg-muted/60 mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-xl border bg-background/60 shadow-sm sm:mt-0"
+              className="border-border/80 hover:bg-muted/65 focus-visible:ring-ring inline-flex size-10 shrink-0 items-center justify-center self-center rounded-xl border bg-background shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
             >
               <ArrowLeftIcon className="size-4" />
             </Link>
 
-            <div className="min-w-0 flex-1">
-              <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            <div className="min-w-0 flex-1 py-0.5">
+              <div className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-widest uppercase">
                 Sales Promo
               </div>
               <Input
@@ -437,21 +484,21 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
                 disabled={loading}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={() => void saveTitle(title.trim() || "Untitled promo")}
-                className="mt-1 h-10 w-full max-w-full border-transparent bg-transparent px-0 text-lg font-semibold tracking-tight shadow-none sm:text-xl md:max-w-[640px] md:text-2xl"
+                className="focus-visible:ring-ring h-11 w-full max-w-full rounded-lg border border-transparent bg-muted/25 px-3 text-lg font-semibold tracking-tight shadow-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-offset-0 sm:text-xl md:max-w-[720px] md:text-2xl"
                 placeholder="Untitled promo"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
             {canManage ? (
               <div className="xl:hidden">
                 <Sheet open={mobileShareOpen} onOpenChange={setMobileShareOpen}>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    className="gap-2"
+                    className="h-9 gap-2 px-4 font-semibold shadow-sm"
                     onClick={() => setMobileShareOpen(true)}
                   >
                     <Share2Icon className="size-4" />
