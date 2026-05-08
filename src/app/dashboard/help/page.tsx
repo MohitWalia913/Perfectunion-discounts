@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { DashboardShell } from "@/components/dashboard-shell"
-import { DashboardPlaceholderPage } from "@/components/dashboard-placeholder-page"
+import { DashboardHelpPage } from "@/components/dashboard-help-page"
 
 export const metadata: Metadata = {
   title: "Help · Perfect Union",
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function HelpPage() {
   return (
     <DashboardShell>
-      <DashboardPlaceholderPage title="Help" />
+      <DashboardHelpPage />
     </DashboardShell>
   )
 }
