@@ -128,6 +128,35 @@ export function getDiscountSchedule(row: DiscountRow): string {
   return parts.length > 0 ? parts.join(' • ') : "Always active"
 }
 
+/** Date portion YYYY-MM-DD from schedule, or null */
+export function getScheduleStartDateISO(row: DiscountRow): string | null {
+  const schedule = row.schedule
+  if (!schedule || typeof schedule !== "object") return null
+  const o = schedule as Record<string, unknown>
+  const keys = ["startDate", "start", "start_date"] as const
+  for (const k of keys) {
+    const v = o[k]
+    if (v == null || v === "") continue
+    const part = String(v).split("T")[0] ?? ""
+    if (/^\d{4}-\d{2}-\d{2}$/.test(part)) return part
+  }
+  return null
+}
+
+export function getScheduleEndDateISO(row: DiscountRow): string | null {
+  const schedule = row.schedule
+  if (!schedule || typeof schedule !== "object") return null
+  const o = schedule as Record<string, unknown>
+  const keys = ["endDate", "end", "end_date"] as const
+  for (const k of keys) {
+    const v = o[k]
+    if (v == null || v === "") continue
+    const part = String(v).split("T")[0] ?? ""
+    if (/^\d{4}-\d{2}-\d{2}$/.test(part)) return part
+  }
+  return null
+}
+
 const DETAIL_KEYS = [
   "organizationId",
   "storeCustomizations",

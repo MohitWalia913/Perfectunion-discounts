@@ -1,0 +1,511 @@
+"use client"
+
+import * as React from "react"
+import { format, isValid, parseISO, startOfDay } from "date-fns"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import type { DiscountRow } from "@/lib/discount-fields"
+import { getDiscountRowId } from "@/lib/discount-fields"
+import type {
+  CollectionEntityDraft,
+  DiscountEditDraft,
+  EditConditionKey,
+  StoreEntityDraft,
+} from "@/lib/discount-edit-helpers"
+import {
+  EDIT_CONDITION_KEYS,
+  mergeRowWithEditDraft,
+  rowToEditDraft,
+  sanitizeDiscountPayload,
+} from "@/lib/discount-edit-helpers"
+import { cn } from "@/lib/utils"
+import { CalendarIcon, ChevronDownIcon, Loader2Icon } from "lucide-react"
+import { toast } from "sonner"
+
+const CONDITION_LABELS: Record<EditConditionKey, string> = {
+  customerCapEnabled: "Customer cap",
+  customerLimitEnabled: "Customer limit",
+  purchaseMinimumEnabled: "Purchase minimum",
+  customerEventEnabled: "Customer event",
+  itemLimitEnabled: "Item limit",
+  customerLicenseTypeEnabled: "Customer license type",
+  packageAgeEnabled: "Package age",
+  fulfillmentTypesEnabled: "Fulfillment types",
+}
+
+function parseDraftDate(iso: string): Date | undefined {
+  const t = iso.trim()
+  if (!t) return undefined
+  try {
+    const d = parseISO(t.length === 10 ? `${t}T12:00:00` : t)
+    return isValid(d) ? d : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function DiscountDashboardEditSheet(props: {
+  open: boolean
+  onOpenChange: (next: boolean) => void
+  row: DiscountRow | null
+  catalogStores: StoreEntityDraft[]
+  catalogCollections: CollectionEntityDraft[]
+  catalogsLoading: boolean
+  saving: boolean
+  onSavingChange: (v: boolean) => void
+}) {
+  const {
+    open,
+    onOpenChange,
+    row,
+    catalogStores,
+    catalogCollections,
+    catalogsLoading,
+    saving,
+    onSavingChange,
+  } = props
+
+  const [draft, setDraft] = React.useState<DiscountEditDraft | null>(null)
+  const [storeSearch, setStoreSearch] = React.useState("")
+  const [collectionSearch, setCollectionSearch] = React.useState("")
+
+  React.useEffect(() => {
+    if (!open || !row) {
+      setDraft(null)
+      return
+    }
+    setDraft(rowToEditDraft(row, catalogStores))
+    setStoreSearch("")
+    setCollectionSearch("")
+  }, [open, row, catalogStores])
+
+  const filteredCatalogStores = React.useMemo(() => {
+    const q = storeSearch.trim().toLowerCase()
+    if (!q) return catalogStores
+    return catalogStores.filter((s) => s.name.toLowerCase().includes(q))
+  }, [catalogStores, storeSearch])
+
+  const filteredCatalogCollections = React.useMemo(() => {
+    const q = collectionSearch.trim().toLowerCase()
+    if (!q) return catalogCollections
+    return catalogCollections.filter((c) => c.name.toLowerCase().includes(q))
+  }, [catalogCollections, collectionSearch])
+
+  function toggleStore(c: StoreEntityDraft, checked: boolean) {
+    if (!draft) return
+    setDraft({
+      ...draft,
+      stores: checked
+        ? [...draft.stores.filter((s) => s.id !== c.id), c]
+        : draft.stores.filter((s) => s.id !== c.id),
+    })
+  }
+
+  function toggleCollection(c: CollectionEntityDraft, checked: boolean) {
+    if (!draft) return
+    setDraft({
+      ...draft,
+      collections: checked
+        ? [...draft.collections.filter((x) => x.id !== c.id), c]
+        : draft.collections.filter((x) => x.id !== c.id),
+    })
+  }
+
+  async function submit() {
+    if (!row || !draft) return
+    const id = getDiscountRowId(row)
+    if (!id) {
+      toast.error("Missing discount id")
+      return
+    }
+    if (draft.stores.length === 0) {
+      toast.error("Select at least one store")
+      return
+    }
+    if (draft.collections.length === 0) {
+      toast.error("Select at least one collection")
+      return
+    }
+    if (!draft.startDate.trim()) {
+      toast.error("Start date is required")
+      return
+    }
+    const badStore = draft.stores.some((s) => !s.id || s.id.startsWith("name:"))
+    if (badStore) {
+      if (catalogStores.length === 0) {
+        toast.error("Stores are still loading — try again in a moment.")
+      } else {
+        toast.error(
+          "One or more locations could not be matched to IDs. Try reopening after stores finish loading.",
+        )
+      }
+      return
+    }
+
+    onSavingChange(true)
+    try {
+      const merged = mergeRowWithEditDraft(row, draft)
+      merged.id = id
+      const cleaned = sanitizeDiscountPayload(merged) as Record<string, unknown>
+
+      const res = await fetch("/api/discounts/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discounts: [cleaned] }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Update failed")
+      }
+
+      if (data.failed > 0) {
+        const errMsg = data.errors?.[0]?.error || "Update failed"
+        throw new Error(errMsg)
+      }
+
+      toast.success("Discount updated")
+      onOpenChange(false)
+      setTimeout(() => window.location.reload(), 400)
+    } catch (e) {
+      toast.error("Failed to update discount", {
+        description: (e as Error).message,
+      })
+    } finally {
+      onSavingChange(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className={cn(
+          "flex h-full flex-col gap-0 p-0 sm:max-w-lg md:w-full md:max-w-xl",
+          "data-[side=right]:border-l data-[side=right]:shadow-xl",
+        )}
+        showCloseButton
+      >
+        <SheetHeader className="gap-2 border-b border-border/80 px-4 py-4 text-left md:px-6">
+          <SheetTitle>Edit discount</SheetTitle>
+          <SheetDescription>
+            Update locations, collections, dates, and service conditions — same payload shape as bulk
+            create.
+          </SheetDescription>
+        </SheetHeader>
+
+        {!draft || !row ? (
+          <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
+            {catalogsLoading ? (
+              <>
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+                Loading catalog…
+              </>
+            ) : (
+              "No discount selected."
+            )}
+          </div>
+        ) : (
+          <>
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-5 px-4 py-5 md:px-6">
+                <div className="space-y-2">
+                  <Label htmlFor="ed-title">Title</Label>
+                  <Input
+                    id="ed-title"
+                    value={draft.title}
+                    onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ed-amt">Percent amount</Label>
+                  <Input
+                    id="ed-amt"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={draft.amount}
+                    onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+                    className="max-w-[8rem]"
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Stores</Label>
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="inline-flex h-9 w-full max-w-md justify-between font-normal"
+                        />
+                      }
+                    >
+                      <span className="truncate">
+                        {draft.stores.length === 0
+                          ? "Select stores…"
+                          : `${draft.stores.length} store${draft.stores.length === 1 ? "" : "s"} selected`}
+                      </span>
+                      <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-0" align="start">
+                      <div className="border-b p-2">
+                        <Input
+                          placeholder="Search stores…"
+                          value={storeSearch}
+                          onChange={(e) => setStoreSearch(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <ScrollArea className="max-h-[240px]">
+                        <div className="flex flex-col gap-px p-2">
+                          {filteredCatalogStores.map((s) => {
+                            const sel = draft.stores.some((x) => x.id === s.id)
+                            return (
+                              <label
+                                key={s.id}
+                                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/80"
+                              >
+                                <Checkbox
+                                  checked={sel}
+                                  onCheckedChange={(v) => toggleStore(s, v === true)}
+                                />
+                                <span className="text-sm leading-tight">{s.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </ScrollArea>
+                      {filteredCatalogStores.length === 0 ? (
+                        <p className="p-4 text-xs text-muted-foreground">
+                          {catalogStores.length === 0
+                            ? "No stores loaded from Treez yet."
+                            : "No matching stores."}
+                        </p>
+                      ) : null}
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Collections</Label>
+                  <Popover>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="inline-flex h-9 w-full max-w-md justify-between font-normal"
+                        />
+                      }
+                    >
+                      <span className="truncate">
+                        {draft.collections.length === 0
+                          ? "Select collections…"
+                          : `${draft.collections.length} collection${draft.collections.length === 1 ? "" : "s"} selected`}
+                      </span>
+                      <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-0" align="start">
+                      <div className="border-b p-2">
+                        <Input
+                          placeholder="Search collections…"
+                          value={collectionSearch}
+                          onChange={(e) => setCollectionSearch(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <ScrollArea className="max-h-[240px]">
+                        <div className="flex flex-col gap-px p-2">
+                          {filteredCatalogCollections.map((c) => {
+                            const sel = draft.collections.some((x) => x.id === c.id)
+                            return (
+                              <label
+                                key={c.id}
+                                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/80"
+                              >
+                                <Checkbox
+                                  checked={sel}
+                                  onCheckedChange={(v) => toggleCollection(c, v === true)}
+                                />
+                                <span className="line-clamp-2 text-sm leading-tight">{c.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </ScrollArea>
+                      {filteredCatalogCollections.length === 0 ? (
+                        <p className="p-4 text-xs text-muted-foreground">
+                          {catalogCollections.length === 0
+                            ? "No collections loaded from Treez yet."
+                            : "No matching collections."}
+                        </p>
+                      ) : null}
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Start date</Label>
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "h-9 w-full justify-start text-left font-normal",
+                              !draft.startDate.trim() && "text-muted-foreground",
+                            )}
+                          />
+                        }
+                      >
+                        <CalendarIcon className="mr-2 size-4 shrink-0" />
+                        {draft.startDate.trim()
+                          ? draft.startDate
+                          : "Pick date (required for save)"}
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={parseDraftDate(draft.startDate)}
+                          onSelect={(date) =>
+                            setDraft({
+                              ...draft,
+                              startDate: date ? format(date, "yyyy-MM-dd") : "",
+                            })
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End date</Label>
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "h-9 w-full justify-start text-left font-normal",
+                              !draft.endDate.trim() && "text-muted-foreground",
+                            )}
+                          />
+                        }
+                      >
+                        <CalendarIcon className="mr-2 size-4 shrink-0" />
+                        {draft.endDate.trim() ? draft.endDate : "Pick date"}
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={parseDraftDate(draft.endDate)}
+                          onSelect={(date) =>
+                            setDraft({
+                              ...draft,
+                              endDate: date ? format(date, "yyyy-MM-dd") : "",
+                            })
+                          }
+                          disabled={(date) => {
+                            const sd = draft.startDate.trim()
+                            if (!sd) return false
+                            const s = parseDraftDate(sd)
+                            if (!s) return false
+                            return startOfDay(date) < startOfDay(s)
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Conditions
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {EDIT_CONDITION_KEYS.map((k) => (
+                      <label
+                        key={k}
+                        className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2"
+                      >
+                        <Checkbox
+                          checked={draft.conditions[k]}
+                          onCheckedChange={(v) =>
+                            setDraft({
+                              ...draft,
+                              conditions: { ...draft.conditions, [k]: v === true },
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <span className="text-sm leading-snug">{CONDITION_LABELS[k]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+
+            <SheetFooter className="border-t border-border/80 px-4 py-4 md:px-6">
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                  disabled={saving || catalogsLoading}
+                  onClick={() => void submit()}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2Icon className="size-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save changes"
+                  )}
+                </Button>
+              </div>
+            </SheetFooter>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}

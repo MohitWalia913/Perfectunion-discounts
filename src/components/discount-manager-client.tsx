@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -20,36 +19,100 @@ import {
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { DiscountDashboardEditSheet } from "@/components/discount-dashboard-edit-sheet"
 import {
   getDiscountActive,
   getDiscountAmount,
-  getDiscountCart,
   getDiscountMethod,
   getDiscountRowId,
   getDiscountTitle,
-  getDiscountSchedule,
+  getScheduleEndDateISO,
+  getScheduleStartDateISO,
   normalizeMethodTab,
   type DiscountRow,
 } from "@/lib/discount-fields"
-import { collectAllStoreNames } from "@/lib/discount-format"
+import type { CollectionEntityDraft, StoreEntityDraft } from "@/lib/discount-edit-helpers"
+import { collectAllStoreNames, getProductCollectionDisplayLines, getStoreNamesFromRow } from "@/lib/discount-format"
 import { cn } from "@/lib/utils"
-import { SearchIcon, Trash2Icon, Edit2Icon, SaveIcon, XIcon, ChevronDownIcon } from "lucide-react"
+import { SearchIcon, Trash2Icon, Edit2Icon, ChevronDownIcon } from "lucide-react"
 import { toast } from "sonner"
 
 const PAGE_SIZE = 12
+
+function StoresCollectionsCell({ row }: { row: DiscountRow }) {
+  const stores = getStoreNamesFromRow(row)
+  const cols = getProductCollectionDisplayLines(row)
+  const ns = stores.length
+  const nc = cols.length
+  const label =
+    ns === 0 && nc === 0
+      ? "n/a"
+      : `${ns} ${ns === 1 ? "store" : "stores"}, ${nc} ${nc === 1 ? "collection" : "collections"}`
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 max-w-[min(100%,14rem)] justify-between gap-1 px-2 text-left text-xs font-normal"
+          />
+        }
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
+      </PopoverTrigger>
+      <PopoverContent className="w-[min(100vw-2rem,340px)] p-0" align="start">
+        <div className="max-h-72 overflow-y-auto p-3 text-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Stores</p>
+          {stores.length === 0 ? (
+            <p className="mt-1 text-xs text-muted-foreground">None assigned</p>
+          ) : (
+            <ul className="mt-1 space-y-1 text-xs text-foreground">
+              {stores.map((name) => (
+                <li key={name} className="leading-snug">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Collections
+          </p>
+          {cols.length === 0 ? (
+            <p className="mt-1 text-xs text-muted-foreground">None assigned</p>
+          ) : (
+            <ul className="mt-1 space-y-1 text-xs text-foreground">
+              {cols.map((name) => (
+                <li key={name} className="leading-snug">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function ScheduleDatesCell({ row }: { row: DiscountRow }) {
+  const start = getScheduleStartDateISO(row)
+  const end = getScheduleEndDateISO(row)
+  return (
+    <div className="space-y-1 text-xs leading-snug">
+      <div>
+        <span className="text-muted-foreground">Start date: </span>
+        <span className="tabular-nums text-foreground">{start ?? "n/a"}</span>
+      </div>
+      <div>
+        <span className="text-muted-foreground">End date: </span>
+        <span className="tabular-nums text-foreground">{end ?? "n/a"}</span>
+      </div>
+    </div>
+  )
+}
 
 function rowMatchesStatus(row: DiscountRow, includeActive: boolean, includeInactive: boolean): boolean {
   if (!includeActive && !includeInactive) return true
@@ -99,52 +162,95 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     [rows],
   )
 
-  const [apiStores, setApiStores] = React.useState<string[]>([])
+  const [storeEntities, setStoreEntities] = React.useState<StoreEntityDraft[]>([])
   const [storesLoading, setStoresLoading] = React.useState(false)
   const [storeSearchQuery, setStoreSearchQuery] = React.useState("")
   const allStores = React.useMemo(() => {
-    return apiStores.length > 0 ? apiStores : collectAllStoreNames(percentRows)
-  }, [apiStores, percentRows])
+    if (storeEntities.length > 0) {
+      const names = [...new Set(storeEntities.map((s) => s.name.trim()).filter(Boolean))]
+      return names.sort((a, b) => a.localeCompare(b))
+    }
+    return collectAllStoreNames(percentRows)
+  }, [storeEntities, percentRows])
   const [selectedStores, setSelectedStores] = React.useState<Set<string>>(() => new Set())
+
+  const [catalogCollections, setCatalogCollections] = React.useState<CollectionEntityDraft[]>([])
+  const [collectionsLoading, setCollectionsLoading] = React.useState(false)
 
   // New states for bulk delete and search
   const [selectedDiscounts, setSelectedDiscounts] = React.useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = React.useState("")
 
-  // Inline editing states
-  const [editingRows, setEditingRows] = React.useState<Set<string>>(new Set())
-  const [editedValues, setEditedValues] = React.useState<Record<string, { title?: string; amount?: string }>>({})
-  const [saving, setSaving] = React.useState(false)
+  const [editSheetOpen, setEditSheetOpen] = React.useState(false)
+  const [sheetRow, setSheetRow] = React.useState<DiscountRow | null>(null)
+  const [sheetSaving, setSheetSaving] = React.useState(false)
 
-  React.useEffect(() => {
-    fetchStores()
-  }, [])
-
-  const fetchStores = async () => {
+  const fetchStores = React.useCallback(async () => {
     setStoresLoading(true)
     try {
       const res = await fetch("/api/stores")
       if (res.ok) {
         const data = await res.json()
         let storesData = data.data || data.entities || data
-        
-        if (storesData && typeof storesData === 'object' && !Array.isArray(storesData)) {
+
+        if (storesData && typeof storesData === "object" && !Array.isArray(storesData)) {
           storesData = storesData.data || storesData.entities || storesData.results || []
         }
-        
-        const storeNames: string[] = Array.isArray(storesData)
-          ? storesData.map((s: any) => 
-              s.name || s.displayName || s.entityName || s.organizationEntityName || s.id || String(s)
-            )
+
+        const parsed: StoreEntityDraft[] = Array.isArray(storesData)
+          ? storesData
+              .map((s: Record<string, unknown>) => {
+                const name = String(
+                  s.name ??
+                    s.displayName ??
+                    s.entityName ??
+                    s.organizationEntityName ??
+                    s.id ??
+                    "",
+                ).trim()
+                let id = String(
+                  s.id ?? s.entityId ?? s.organizationEntityId ?? s.entity_id ?? "",
+                ).trim()
+                if (!id && name) id = name
+                return { id, name }
+              })
+              .filter((s) => s.name.length > 0)
           : []
-        setApiStores(storeNames)
+        setStoreEntities(parsed)
       }
     } catch (e) {
       console.error("Failed to fetch stores:", e)
     } finally {
       setStoresLoading(false)
     }
-  }
+  }, [])
+
+  const fetchCollections = React.useCallback(async () => {
+    setCollectionsLoading(true)
+    try {
+      const res = await fetch("/api/collections")
+      if (!res.ok) return
+      const data = await res.json()
+      const raw = data.data || data.collections || data
+      const arr = Array.isArray(raw) ? raw : []
+      const parsed: CollectionEntityDraft[] = arr
+        .map((c: Record<string, unknown>) => ({
+          id: String(c.id ?? c.collectionId ?? c.productCollectionId ?? "").trim(),
+          name: String(c.name ?? c.title ?? c.displayName ?? c.id ?? "").trim(),
+        }))
+        .filter((c) => c.id && c.name)
+      setCatalogCollections(parsed)
+    } catch (e) {
+      console.error("Failed to fetch collections:", e)
+    } finally {
+      setCollectionsLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void fetchStores()
+    void fetchCollections()
+  }, [fetchStores, fetchCollections])
 
   React.useEffect(() => {
     setSelectedStores(new Set(allStores))
@@ -382,357 +488,29 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     setSelectedDiscounts(newSet)
   }
 
-  const handleEditRow = (id: string, row: DiscountRow) => {
-    setEditingRows(new Set([...editingRows, id]))
-    setEditedValues({
-      ...editedValues,
-      [id]: {
-        title: getDiscountTitle(row) || "",
-        amount: getDiscountAmount(row)?.toString() || "",
-      },
-    })
+  const openEditSheet = (row: DiscountRow) => {
+    setSheetRow(row)
+    setEditSheetOpen(true)
   }
 
-  const handleCancelEdit = (id: string) => {
-    const newEditingRows = new Set(editingRows)
-    newEditingRows.delete(id)
-    setEditingRows(newEditingRows)
-    const newEditedValues = { ...editedValues }
-    delete newEditedValues[id]
-    setEditedValues(newEditedValues)
-  }
-
-  const handleSaveRow = async (id: string, row: DiscountRow) => {
-    const editedData = editedValues[id]
-    if (!editedData) return
-
-    setSaving(true)
-    try {
-      // Send the entire row object, but update title and amount
-      // Remove metadata fields that shouldn't be in PUT requests
-      const { createdAt, updatedAt, ...cleanRow } = row as any
-      
-      const updatedDiscount: any = {
-        ...cleanRow,
-        id,
-        title: editedData.title,
-        amount: editedData.amount,
-      }
-      
-      // Remove createdAt/updatedAt from nested objects
-      if (updatedDiscount.conditions) {
-        const { createdAt: condCreated, updatedAt: condUpdated, id: condId, ...cleanCond } = updatedDiscount.conditions
-        updatedDiscount.conditions = Object.keys(cleanCond).length > 0 ? cleanCond : null
-      }
-      
-      if (updatedDiscount.schedule) {
-        const { createdAt: schedCreated, updatedAt: schedUpdated, id: schedId, ...cleanSched } = updatedDiscount.schedule
-        updatedDiscount.schedule = Object.keys(cleanSched).length > 0 ? cleanSched : null
-      }
-      
-      if (updatedDiscount.manualConditions) {
-        const { createdAt: manCreated, updatedAt: manUpdated, id: manId, ...cleanMan } = updatedDiscount.manualConditions
-        updatedDiscount.manualConditions = Object.keys(cleanMan).length > 0 ? cleanMan : null
-      }
-      
-      // Clean storeCustomizations - only send entityId per API schema
-      if (Array.isArray(updatedDiscount.storeCustomizations)) {
-        updatedDiscount.storeCustomizations = updatedDiscount.storeCustomizations.map((s: any) => ({
-          entityId: s.entityId
-        }))
-      }
-      
-      // Clean collections - only send productCollectionId per API schema
-      if (Array.isArray(updatedDiscount.collections)) {
-        updatedDiscount.collections = updatedDiscount.collections.map((c: any) => ({
-          productCollectionId: c.productCollectionId
-        }))
-      }
-      
-      // Clean collectionsRequired - only send productCollectionId per API schema
-      if (Array.isArray(updatedDiscount.collectionsRequired)) {
-        updatedDiscount.collectionsRequired = updatedDiscount.collectionsRequired.map((c: any) => ({
-          productCollectionId: c.productCollectionId
-        }))
-      }
-      
-      // Clean customerGroups - only send tagId per API schema
-      if (Array.isArray(updatedDiscount.customerGroups)) {
-        updatedDiscount.customerGroups = updatedDiscount.customerGroups.map((c: any) => ({
-          tagId: c.tagId
-        }))
-      }
-      
-      // Clean coupons - send only required fields per API schema
-      if (Array.isArray(updatedDiscount.coupons)) {
-        updatedDiscount.coupons = updatedDiscount.coupons.map((c: any) => {
-          const cleaned: any = {}
-          if (c.code) cleaned.code = c.code
-          if (c.title) cleaned.title = c.title
-          if (c.startDate) cleaned.startDate = c.startDate
-          if (c.endDate) cleaned.endDate = c.endDate
-          if (c.startTime) cleaned.startTime = c.startTime
-          if (c.endTime) cleaned.endTime = c.endTime
-          return cleaned
-        })
-      }
-
-      // Remove all null values and empty arrays recursively
-      const removeNulls = (obj: any): any => {
-        if (obj === null || obj === undefined) return undefined
-        if (Array.isArray(obj)) {
-          const filtered = obj.map(removeNulls).filter(item => item !== undefined)
-          return filtered.length > 0 ? filtered : undefined
-        }
-        if (typeof obj === 'object') {
-          const cleaned: any = {}
-          for (const [key, value] of Object.entries(obj)) {
-            const cleanedValue = removeNulls(value)
-            if (cleanedValue !== undefined && cleanedValue !== null) {
-              // Skip empty arrays and empty objects
-              if (Array.isArray(cleanedValue) && cleanedValue.length === 0) continue
-              if (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0) continue
-              cleaned[key] = cleanedValue
-            }
-          }
-          return Object.keys(cleaned).length > 0 ? cleaned : undefined
-        }
-        return obj
-      }
-
-      const cleanedDiscount = removeNulls(updatedDiscount)
-
-      console.log("Saving discount:", { id, title: editedData.title, amount: editedData.amount })
-      console.log("Full payload:", cleanedDiscount)
-
-      const res = await fetch("/api/discounts/update", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ discounts: [cleanedDiscount] }),
-      })
-
-      const data = await res.json()
-      console.log("Update response:", data)
-
-      if (!res.ok) {
-        console.error("Update failed:", data)
-        throw new Error(data.error || "Failed to update discount")
-      }
-
-      if (data.successful > 0) {
-        toast.success("Discount updated successfully!")
-        handleCancelEdit(id)
-        setTimeout(() => window.location.reload(), 500)
-      }
-
-      if (data.failed > 0) {
-        const errorDetails = data.errors?.[0]?.details 
-        const errorMsg = data.errors?.[0]?.error || "Update failed"
-        console.error("Update failed - Full response:", data)
-        console.error("Update failed - Error details:", errorDetails)
-        console.error("Update failed - Error message:", errorMsg)
-        
-        // Try to parse error details if it's a string
-        let displayMsg = errorMsg
-        if (errorDetails) {
-          try {
-            const parsed = typeof errorDetails === 'string' ? JSON.parse(errorDetails) : errorDetails
-            displayMsg = parsed.message || parsed.error || errorMsg
-          } catch {
-            displayMsg = errorDetails.substring(0, 200) // Show first 200 chars
-          }
-        }
-        
-        toast.error("Failed to update discount", {
-          description: displayMsg,
-          duration: 7000,
-        })
-      }
-    } catch (e) {
-      console.error("Update exception:", e)
-      toast.error("Failed to update discount", {
-        description: (e as Error).message,
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleBulkEdit = () => {
+  const handleBulkEditSelected = () => {
     if (selectedDiscounts.size === 0) {
       toast.error("No discounts selected")
       return
     }
-
-    const newEditingRows = new Set(editingRows)
-    const newEditedValues = { ...editedValues }
-
-    selectedDiscounts.forEach((id) => {
-      const row = rows.find((r) => getDiscountRowId(r) === id)
-      if (row) {
-        newEditingRows.add(id)
-        newEditedValues[id] = {
-          title: getDiscountTitle(row) || "",
-          amount: getDiscountAmount(row)?.toString() || "",
-        }
-      }
-    })
-
-    setEditingRows(newEditingRows)
-    setEditedValues(newEditedValues)
-    toast.success(`${selectedDiscounts.size} discount${selectedDiscounts.size > 1 ? 's' : ''} now in edit mode`)
-  }
-
-  const handleSaveAll = async () => {
-    if (editingRows.size === 0) {
-      toast.error("No discounts in edit mode")
+    const firstId = Array.from(selectedDiscounts)[0]
+    const row = rows.find((r) => getDiscountRowId(r) === firstId)
+    if (!row) {
+      toast.error("Could not load that discount")
       return
     }
-
-    const confirmed = window.confirm(
-      `Save changes to ${editingRows.size} discount${editingRows.size > 1 ? 's' : ''}?`
-    )
-
-    if (!confirmed) return
-
-    setSaving(true)
-
-    try {
-      const discountsToUpdate = Array.from(editingRows).map((id) => {
-        const row = rows.find((r) => getDiscountRowId(r) === id)
-        const editedData = editedValues[id]
-        
-        if (!row) return null
-
-        // Send the entire row, but update title and amount
-        const { createdAt, updatedAt, ...cleanRow } = row as any
-        
-        const discount: any = {
-          ...cleanRow,
-          id,
-          title: editedData?.title,
-          amount: editedData?.amount,
-        }
-        
-        // Remove metadata from nested objects
-        if (discount.conditions) {
-          const { createdAt: c1, updatedAt: u1, id: i1, ...cleanCond } = discount.conditions
-          discount.conditions = Object.keys(cleanCond).length > 0 ? cleanCond : null
-        }
-        
-        if (discount.schedule) {
-          const { createdAt: c2, updatedAt: u2, id: i2, ...cleanSched } = discount.schedule
-          discount.schedule = Object.keys(cleanSched).length > 0 ? cleanSched : null
-        }
-        
-        if (discount.manualConditions) {
-          const { createdAt: c3, updatedAt: u3, id: i3, ...cleanMan } = discount.manualConditions
-          discount.manualConditions = Object.keys(cleanMan).length > 0 ? cleanMan : null
-        }
-        
-        // Clean arrays - only send required fields per API schema
-        if (Array.isArray(discount.storeCustomizations)) {
-          discount.storeCustomizations = discount.storeCustomizations.map((s: any) => ({
-            entityId: s.entityId
-          }))
-        }
-        
-        if (Array.isArray(discount.collections)) {
-          discount.collections = discount.collections.map((c: any) => ({
-            productCollectionId: c.productCollectionId
-          }))
-        }
-        
-        if (Array.isArray(discount.collectionsRequired)) {
-          discount.collectionsRequired = discount.collectionsRequired.map((c: any) => ({
-            productCollectionId: c.productCollectionId
-          }))
-        }
-        
-        if (Array.isArray(discount.customerGroups)) {
-          discount.customerGroups = discount.customerGroups.map((c: any) => ({
-            tagId: c.tagId
-          }))
-        }
-        
-        if (Array.isArray(discount.coupons)) {
-          discount.coupons = discount.coupons.map((c: any) => {
-            const cleaned: any = {}
-            if (c.code) cleaned.code = c.code
-            if (c.title) cleaned.title = c.title
-            if (c.startDate) cleaned.startDate = c.startDate
-            if (c.endDate) cleaned.endDate = c.endDate
-            if (c.startTime) cleaned.startTime = c.startTime
-            if (c.endTime) cleaned.endTime = c.endTime
-            return cleaned
-          })
-        }
-        
-        return discount
-      }).filter(Boolean)
-
-      // Remove all null values and empty arrays from each discount
-      const removeNulls = (obj: any): any => {
-        if (obj === null || obj === undefined) return undefined
-        if (Array.isArray(obj)) {
-          const filtered = obj.map(removeNulls).filter(item => item !== undefined)
-          return filtered.length > 0 ? filtered : undefined
-        }
-        if (typeof obj === 'object') {
-          const cleaned: any = {}
-          for (const [key, value] of Object.entries(obj)) {
-            const cleanedValue = removeNulls(value)
-            if (cleanedValue !== undefined && cleanedValue !== null) {
-              // Skip empty arrays and empty objects
-              if (Array.isArray(cleanedValue) && cleanedValue.length === 0) continue
-              if (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0) continue
-              cleaned[key] = cleanedValue
-            }
-          }
-          return Object.keys(cleaned).length > 0 ? cleaned : undefined
-        }
-        return obj
-      }
-
-      const cleanedDiscounts = discountsToUpdate.map(removeNulls).filter(Boolean)
-
-      const res = await fetch("/api/discounts/update", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ discounts: cleanedDiscounts }),
+    if (selectedDiscounts.size > 1) {
+      toast.message("Editing the first selected row — save, then select another.", {
+        description: "Bulk editor opens one discount at a time.",
+        duration: 5000,
       })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update discounts")
-      }
-
-      if (data.successful > 0) {
-        toast.success(`Successfully updated ${data.successful} discount${data.successful > 1 ? 's' : ''}!`)
-      }
-
-      if (data.failed > 0) {
-        toast.error(`Failed to update ${data.failed} discount${data.failed > 1 ? 's' : ''}`, {
-          description: data.errors?.[0]?.error || "Some updates failed",
-        })
-      }
-
-      setEditingRows(new Set())
-      setEditedValues({})
-
-      setTimeout(() => window.location.reload(), 500)
-    } catch (e) {
-      toast.error("Failed to update discounts", {
-        description: (e as Error).message,
-      })
-    } finally {
-      setSaving(false)
     }
+    openEditSheet(row)
   }
 
   return (
@@ -750,24 +528,12 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleBulkEdit}
-                disabled={saving}
+                onClick={handleBulkEditSelected}
+                disabled={sheetSaving}
                 className="gap-2"
               >
                 <Edit2Icon className="h-4 w-4" />
                 Edit {selectedDiscounts.size} selected
-              </Button>
-            )}
-            {editingRows.size > 0 && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSaveAll}
-                disabled={saving}
-                className="gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90"
-              >
-                <SaveIcon className="h-4 w-4" />
-                Save All ({editingRows.size})
               </Button>
             )}
           </div>
@@ -955,179 +721,108 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
         </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-        <ScrollArea className="h-[min(58vh,calc(100vh-16rem)))] w-full">
-          <Table className="w-full min-w-0 table-fixed">
-            <TableHeader className="sticky top-0 z-10 bg-[#1A1E26] backdrop-blur">
-              <TableRow className="hover:bg-transparent border-b-[#1A1E26]">
-                <TableHead className="w-10 px-2">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px]">
+            <thead className="border-b border-border bg-muted/50">
+              <tr>
+                <th className="px-2 py-2 text-left align-middle">
                   <Checkbox
                     checked={
                       pageRows.length > 0 &&
                       pageRows.every((r) => {
-                        const id = getDiscountRowId(r)
-                        return id && selectedDiscounts.has(id)
+                        const rid = getDiscountRowId(r)
+                        return rid && selectedDiscounts.has(rid)
                       })
                     }
                     onCheckedChange={handleSelectAll}
-                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-[#1A1E26]"
+                    aria-label="Select all on this page"
+                    className="border-input"
                   />
-                </TableHead>
-                <TableHead className="w-[35%] text-xs font-bold uppercase tracking-wide text-white">
+                </th>
+                <th className="min-w-[28%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Title
-                </TableHead>
-                <TableHead className="w-[12%] text-xs font-bold uppercase tracking-wide text-white">
+                </th>
+                <th className="w-[110px] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Amount
-                </TableHead>
-                <TableHead className="w-[25%] text-xs font-bold uppercase tracking-wide text-white">
+                </th>
+                <th className="min-w-[24%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Stores / Collections
-                </TableHead>
-                <TableHead className="w-[18%] text-xs font-bold uppercase tracking-wide text-white">
-                  Schedule
-                </TableHead>
-                <TableHead className="w-[10%] text-xs font-bold uppercase tracking-wide text-white text-center">
+                </th>
+                <th className="min-w-[18%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Start / End
+                </th>
+                <th className="w-24 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Edit
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
               {pageRows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-2 py-12 text-center text-sm text-muted-foreground"
+                  >
                     No discounts for this filter.
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 pageRows.map((row) => {
                   const id = getDiscountRowId(row) || JSON.stringify(row).slice(0, 40)
                   const title = getDiscountTitle(row)
                   const amount = getDiscountAmount(row)
-                  const schedule = getDiscountSchedule(row)
-                  const isEditing = editingRows.has(id)
-                  const editedData = editedValues[id]
-
-                  // Get store names
-                  const storeNames = Array.isArray(row.storeCustomizations)
-                    ? row.storeCustomizations.map((s: any) => s.entityName || s.entityId).join(", ")
-                    : "—"
-
-                  // Get collection names
-                  const collectionNames = Array.isArray(row.collections)
-                    ? row.collections.map((c: any) => c.productCollectionName || c.productCollectionId).join(", ")
-                    : "—"
-
-                  const storesCollections = [storeNames, collectionNames].filter(s => s !== "—").join(" | ") || "—"
 
                   return (
-                    <TableRow 
-                      key={id} 
-                      className={`border-border/60 transition-colors ${isEditing ? 'bg-yellow-50/50' : 'hover:bg-muted/30'}`}
-                    >
-                      <TableCell className="px-2 align-middle">
+                    <tr key={id} className="transition-colors hover:bg-muted/30">
+                      <td className="px-2 py-2 align-middle">
                         <Checkbox
                           checked={selectedDiscounts.has(id)}
                           onCheckedChange={(checked) =>
                             handleSelectDiscount(id, checked === true)
                           }
-                          disabled={isEditing}
+                          aria-label={`Select discount ${title}`}
+                          className="border-input"
                         />
-                      </TableCell>
-                      <TableCell className="align-middle px-3">
-                        {isEditing ? (
-                          <Input
-                            type="text"
-                            value={editedData?.title || ""}
-                            onChange={(e) => {
-                              setEditedValues({
-                                ...editedValues,
-                                [id]: {
-                                  ...editedData,
-                                  title: e.target.value,
-                                },
-                              })
-                            }}
-                            className="h-8 text-sm"
-                            placeholder="Discount title"
-                          />
-                        ) : (
-                          <span className="text-sm font-medium text-foreground truncate block">
-                            {title}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-middle px-3">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            value={editedData?.amount || ""}
-                            onChange={(e) => {
-                              setEditedValues({
-                                ...editedValues,
-                                [id]: {
-                                  ...editedData,
-                                  amount: e.target.value,
-                                },
-                              })
-                            }}
-                            className="h-8 text-sm w-24"
-                            placeholder="0"
-                          />
-                        ) : (
-                          <Badge variant="secondary" className="font-mono text-[10px]">
-                            {amount ? `${amount}%` : "—"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-middle px-3">
-                        <span className="text-xs text-muted-foreground truncate block">
-                          {storesCollections}
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {title}
                         </span>
-                      </TableCell>
-                      <TableCell className="align-middle px-3">
-                        <span className="text-xs leading-tight text-foreground">{schedule || "—"}</span>
-                      </TableCell>
-                      <TableCell className="align-middle text-center px-2">
-                        {isEditing ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-7 text-[#1A1E26] hover:bg-[#1A1E26]/10 hover:text-[#141920]"
-                              onClick={() => handleSaveRow(id, row)}
-                              disabled={saving}
-                            >
-                              <SaveIcon className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-7 text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={() => handleCancelEdit(id)}
-                              disabled={saving}
-                            >
-                              <XIcon className="size-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <span className="inline-flex rounded-md border border-transparent bg-muted/50 px-2 py-1 font-mono text-xs tabular-nums text-foreground">
+                          {amount !== undefined && amount !== null && amount !== "" && amount !== "—"
+                            ? `${amount}%`
+                            : "—"}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <StoresCollectionsCell row={row} />
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <ScheduleDatesCell row={row} />
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            className="size-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                            onClick={() => handleEditRow(id, row)}
+                            className="size-8 hover:bg-muted/80 hover:text-primary"
+                            disabled={sheetSaving}
+                            onClick={() => openEditSheet(row)}
                           >
-                            <Edit2Icon className="size-4" />
+                            <Edit2Icon className="size-3.5" />
                           </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                        </div>
+                      </td>
+                    </tr>
                   )
                 })
               )}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="flex flex-col items-stretch justify-between gap-3 border-t border-border/60 pt-2 sm:flex-row sm:items-center">
@@ -1158,6 +853,17 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           </Button>
         </div>
       </div>
+
+      <DiscountDashboardEditSheet
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        row={sheetRow}
+        catalogStores={storeEntities}
+        catalogCollections={catalogCollections}
+        catalogsLoading={storesLoading || collectionsLoading}
+        saving={sheetSaving}
+        onSavingChange={setSheetSaving}
+      />
 
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton>

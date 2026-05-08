@@ -46,6 +46,31 @@ function collectionNames(row: DiscountRow, key: "collections" | "collectionsRequ
   return [...new Set(out)]
 }
 
+/** Display names for product collections on a discount (name, or id fallback). */
+export function getProductCollectionDisplayLines(row: DiscountRow): string[] {
+  const arr = row.collections
+  if (!Array.isArray(arr)) return []
+  const lines: string[] = []
+  for (const c of arr) {
+    if (!c || typeof c !== "object") continue
+    const o = c as {
+      productCollectionName?: unknown
+      productCollectionId?: unknown
+    }
+    const name =
+      typeof o.productCollectionName === "string" && o.productCollectionName.trim()
+        ? o.productCollectionName.trim()
+        : null
+    const id =
+      o.productCollectionId != null && String(o.productCollectionId).trim()
+        ? String(o.productCollectionId).trim()
+        : null
+    if (name) lines.push(name)
+    else if (id) lines.push(id)
+  }
+  return [...new Set(lines)]
+}
+
 function summarizeSchedule(s: Record<string, unknown>): string {
   const parts: string[] = []
   if (typeof s.startDate === "string") parts.push(`Start ${s.startDate}`)
