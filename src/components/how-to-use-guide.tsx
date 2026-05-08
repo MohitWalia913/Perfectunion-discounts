@@ -149,10 +149,16 @@ export function HowToUseGuide() {
                     Use the Bulk upload discounts screen to compose many discounts in one table. Each row
                     becomes a discount created through Treez via{" "}
                     <code className="rounded-md bg-muted px-1 py-0.5 text-xs">POST /api/discounts/bulk</code>
-                    .
+                    . You can also save a grid as a <strong className="text-foreground">bulk draft</strong>, publish
+                    rows on demand, or queue them for an auto-publish day.
                   </p>
                 </div>
-                <GuideLink href="/dashboard/discounts/bulk-upload">Open bulk upload</GuideLink>
+                <div className="flex flex-wrap gap-2">
+                  <GuideLink href="/dashboard/discounts/bulk-upload">Open bulk upload</GuideLink>
+                  <GuideLink href="/dashboard/discounts/drafts" variant="outline">
+                    Bulk drafts
+                  </GuideLink>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-border/80 bg-background">
@@ -244,6 +250,37 @@ export function HowToUseGuide() {
                   ]}
                 />
               </Callout>
+
+              <Callout title="Bulk drafts: save, publish, or schedule a publish">
+                <p>
+                  Drafts store your whole table in the app so you can finish later, publish some rows to
+                  Treez immediately, or set a calendar day for automatic publishing. Open{" "}
+                  <strong className="text-foreground">Bulk drafts</strong> in the sidebar, pick a draft, then
+                  use the columns described below.
+                </p>
+                <BulletList
+                  items={[
+                    "Pub — checkbox to include a row in the next manual publish (published rows are disabled).",
+                    "Auto-publish — optional date (UTC). When set and the row is still unpublished, Status shows Queued.",
+                    "Status — Draft (no schedule), Queued (scheduled), or Live (already published to Treez).",
+                    "Publish selected — pushes checked valid rows to Treez right away (/api/discount-drafts/[id]/publish).",
+                    "Save draft — saves title and rows; from bulk upload, the first save may open the draft editor for that draft.",
+                  ]}
+                />
+                <p className="mt-3 text-muted-foreground">
+                  <strong className="text-foreground">Automatic publishes by date:</strong> configure{" "}
+                  <code className="rounded-md bg-muted px-1 py-0.5 text-xs">CRON_SECRET</code> in the server
+                  environment and call{" "}
+                  <code className="rounded-md bg-muted px-1 py-0.5 text-xs">GET /api/cron/publish-bulk-drafts</code>{" "}
+                  with header{" "}
+                  <code className="rounded-md bg-muted px-1 py-0.5 text-xs">
+                    Authorization: Bearer &lt;CRON_SECRET&gt;
+                  </code>{" "}
+                  on a schedule (for example Vercel Cron). Each run publishes draft rows whose auto-publish
+                  date is <strong className="text-foreground">today in UTC</strong> and that are valid and not
+                  yet live.
+                </p>
+              </Callout>
             </div>
 
             <div className="space-y-6 px-5 py-6 md:px-7 md:py-8">
@@ -284,6 +321,39 @@ export function HowToUseGuide() {
                     total / successful / failed; expand failed rows for messages and optional JSON detail.
                     When every row succeeds, you are routed back to the main discounts dashboard after a
                     short delay.
+                  </li>
+                </OrderedSteps>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-semibold tracking-tight text-foreground uppercase">
+                  Bulk drafts workflow
+                </h3>
+                <OrderedSteps>
+                  <li className="ps-2 text-muted-foreground">
+                    <span className="text-foreground">Save a draft:</span> on Bulk upload discounts, fill the
+                    grid and choose <strong className="text-foreground">Save draft</strong>. Use the optional
+                    draft name field, then keep editing or open{" "}
+                    <GuideLink href="/dashboard/discounts/drafts" variant="outline">
+                      Bulk drafts
+                    </GuideLink>{" "}
+                    from this page to resume later.
+                  </li>
+                  <li className="ps-2 text-muted-foreground">
+                    <span className="text-foreground">Open a draft</span> from the list — you get the same
+                    table with extra columns (Pub, Auto-publish, Status). Adjust rows and save often.
+                  </li>
+                  <li className="ps-2 text-muted-foreground">
+                    <span className="text-foreground">Publish now:</span> tick <strong className="text-foreground">Pub</strong>{" "}
+                    for each row you want to create in Treez, then click{" "}
+                    <strong className="text-foreground">Publish selected</strong>. Rows must be valid; already-live rows cannot be
+                    republished from this flow.
+                  </li>
+                  <li className="ps-2 text-muted-foreground">
+                    <span className="text-foreground">Schedule for later:</span> set <strong className="text-foreground">Auto-publish</strong>{" "}
+                    to a calendar day. Status shows <em>Queued</em>. Ensure your host runs the bulk-drafts cron
+                    (authorized GET to <code className="rounded-md bg-muted px-1 py-0.5 text-xs">/api/cron/publish-bulk-drafts</code>)
+                    on that day in UTC so queued rows publish without manual action.
                   </li>
                 </OrderedSteps>
               </section>

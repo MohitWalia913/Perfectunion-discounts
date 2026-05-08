@@ -441,7 +441,7 @@ export function BulkDiscountBuilder({
                           </th>
                         </>
                       ) : null}
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[140px]">
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[176px] w-[176px] whitespace-nowrap">
                         Type *
                       </th>
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[200px]">
@@ -519,19 +519,19 @@ export function BulkDiscountBuilder({
                             </td>
                           </>
                         ) : null}
-                        <td className="px-2 py-2">
+                        <td className="px-2 py-2 align-middle whitespace-nowrap min-w-[176px]">
                           <Popover
                             open={openPopoverKey === popK(row.id, "dtype")}
                             onOpenChange={onPopChange(row.id, "dtype")}
                           >
-                            <PopoverTrigger className="inline-flex items-center justify-between w-full h-9 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                              <span>
+                            <PopoverTrigger className="inline-flex h-9 w-full min-w-[160px] max-w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                              <span className="whitespace-nowrap text-left">
                                 {row.discountType === "FUN_FRIDAY" && "Fun Friday"}
                                 {row.discountType === "HOTBOX" && "Hotbox"}
                                 {row.discountType === "DAILY_SPECIAL" && "Daily Special"}
                                 {row.discountType === "CUSTOM" && "Custom"}
                               </span>
-                              <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
                             </PopoverTrigger>
                             <PopoverContent className="w-[180px] p-1" align="start">
                               <div className="space-y-1">
