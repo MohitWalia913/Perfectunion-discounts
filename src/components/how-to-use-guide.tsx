@@ -13,6 +13,9 @@ import { buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
+/** Shared width + horizontal padding so hero and tabs/content align vertically. */
+const PAGE_MAX = "mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8"
+
 function GuideLink({
   href,
   children,
@@ -80,8 +83,8 @@ export function HowToUseGuide() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Hero */}
-      <div className="border-b border-primary/10 bg-gradient-to-br from-primary/[0.06] via-background to-background px-4 py-8 md:px-8 md:py-10">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+      <div className="border-b border-primary/10 bg-gradient-to-br from-primary/[0.06] via-background to-background">
+        <div className={cn(PAGE_MAX, "flex flex-col gap-4 py-8 md:py-10 lg:py-11")}>
           <div className="inline-flex items-center gap-2 self-start rounded-full border border-primary/15 bg-primary/[0.07] px-3 py-1 text-[11px] font-semibold tracking-wide text-primary uppercase">
             <BookOpenIcon className="size-3.5" aria-hidden />
             Documentation
@@ -90,7 +93,7 @@ export function HowToUseGuide() {
             <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               How to use
             </h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-[15px]">
+            <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground md:text-[15px] lg:text-base">
               Operational guides aligned with this dashboard — bulk discount creation, Sales Promo
               collaboration, and user administration.
             </p>
@@ -99,13 +102,23 @@ export function HowToUseGuide() {
       </div>
 
       {/* Tabs + content */}
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 md:px-8 md:py-10">
+      <div className={cn(PAGE_MAX, "flex flex-1 flex-col gap-8 py-8 md:py-10 lg:py-11")}>
         <Tabs defaultValue="bulk" className="flex w-full flex-col gap-8">
-          <TabsList className="grid h-auto w-full shrink-0 grid-cols-1 gap-2 rounded-xl border border-primary/12 bg-muted/40 p-1.5 shadow-sm sm:grid-cols-3 sm:p-1">
+          {/*
+           * TabsList default includes group-data-horizontal/tabs:h-8 which pins the rail to 32px while
+           * triggers often need more height — override so the pill stretches with its children.
+           */}
+          <TabsList
+            className={cn(
+              "grid h-auto min-h-0 w-full shrink-0 grid-cols-1 gap-1.5 rounded-xl border border-primary/12 bg-muted/40 p-1.5 shadow-sm sm:grid-cols-3 sm:p-1.5 sm:gap-1",
+              "items-stretch justify-center group-data-horizontal/tabs:h-auto",
+            )}
+          >
             <TabsTrigger
               value="bulk"
               className={cn(
-                "gap-2 rounded-lg px-3 py-3 text-[13px] font-medium sm:h-9 sm:py-1.5 sm:text-sm",
+                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
+                "flex-none basis-auto",
                 "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
               )}
             >
@@ -115,7 +128,8 @@ export function HowToUseGuide() {
             <TabsTrigger
               value="promo"
               className={cn(
-                "gap-2 rounded-lg px-3 py-3 text-[13px] font-medium sm:h-9 sm:py-1.5 sm:text-sm",
+                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
+                "flex-none basis-auto",
                 "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
               )}
             >
@@ -125,7 +139,8 @@ export function HowToUseGuide() {
             <TabsTrigger
               value="users"
               className={cn(
-                "gap-2 rounded-lg px-3 py-3 text-[13px] font-medium sm:h-9 sm:py-1.5 sm:text-sm",
+                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
+                "flex-none basis-auto",
                 "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
               )}
             >
