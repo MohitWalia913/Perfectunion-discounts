@@ -6,12 +6,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BookOpenIcon,
-  ChevronRightIcon,
   CirclePlusIcon,
   HelpCircleIcon,
   LayoutGridIcon,
   MegaphoneIcon,
-  Settings2Icon,
   UploadIcon,
   UsersIcon,
 } from "lucide-react"
@@ -29,15 +27,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-
-const SETTINGS_BASE = "/dashboard/settings"
 
 const MORE_NAV = [
   {
@@ -46,11 +39,6 @@ const MORE_NAV = [
     icon: MegaphoneIcon,
   },
   { href: "/dashboard/users", label: "Users", icon: UsersIcon },
-] as const
-
-const SETTINGS_SUB = [
-  { href: "/dashboard/settings", label: "General" },
-  { href: "/dashboard/settings/preferences", label: "Preferences" },
 ] as const
 
 const HELP_NAV = [
@@ -96,11 +84,6 @@ function navLinkActive(pathname: string, href: string): boolean {
   return pathname === href
 }
 
-function routeStartsWith(pathname: string, base: string): boolean {
-  if (pathname === base) return true
-  return pathname.startsWith(`${base}/`)
-}
-
 export function DashboardShell({
   children,
   headerActions,
@@ -112,20 +95,6 @@ export function DashboardShell({
   sidebarFooter?: React.ReactNode
 }) {
   const pathname = usePathname() || ""
-  const underSettings = routeStartsWith(pathname, SETTINGS_BASE)
-  const [settingsOpen, setSettingsOpen] = React.useState(underSettings)
-  const prevPathForSettings = React.useRef(pathname)
-
-  React.useEffect(() => {
-    const was = prevPathForSettings.current
-    prevPathForSettings.current = pathname
-    const wasIn = routeStartsWith(was, SETTINGS_BASE)
-    const nowIn = routeStartsWith(pathname, SETTINGS_BASE)
-    if (!wasIn && nowIn) setSettingsOpen(true)
-    if (wasIn && !nowIn) setSettingsOpen(false)
-  }, [pathname])
-
-  const showSettingsSub = settingsOpen || underSettings
 
   const collapseForBulk =
     pathname === "/dashboard/discounts/bulk-upload" ||
@@ -205,44 +174,6 @@ export function DashboardShell({
                       </SidebarMenuItem>
                     )
                   })}
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      type="button"
-                      className="justify-between"
-                      tooltip="Settings"
-                      isActive={underSettings}
-                      onClick={() => setSettingsOpen((o) => !o)}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <Settings2Icon aria-hidden className="shrink-0" />
-                        <span className="truncate">Settings</span>
-                      </span>
-                      <ChevronRightIcon
-                        aria-hidden
-                        className={cn(
-                          "size-4 shrink-0 transition-transform",
-                          showSettingsSub && "rotate-90",
-                        )}
-                      />
-                    </SidebarMenuButton>
-                    {showSettingsSub ? (
-                      <SidebarMenuSub>
-                        {SETTINGS_SUB.map(({ href, label }) => {
-                          const subActive = pathname === href
-                          return (
-                            <SidebarMenuSubItem key={href}>
-                              <SidebarMenuSubButton
-                                isActive={subActive}
-                                render={<Link href={href} />}
-                              >
-                                <span>{label}</span>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          )
-                        })}
-                      </SidebarMenuSub>
-                    ) : null}
-                  </SidebarMenuItem>
                   {HELP_NAV.map(({ href, label, icon: Icon }) => {
                     const active = pathname === href
                     return (
