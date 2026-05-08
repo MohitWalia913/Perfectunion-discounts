@@ -234,8 +234,8 @@ export function DashboardShell({
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[10px] font-medium transition-colors",
                   active
-                    ? "text-[#1A1E26]"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-primary text-primary-foreground [&_svg]:text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
                 aria-current={active ? "page" : undefined}
               >
@@ -243,7 +243,7 @@ export function DashboardShell({
                   className={cn(
                     "flex size-10 items-center justify-center rounded-xl transition-colors",
                     active
-                      ? "bg-[#1A1E26]/12 text-[#1A1E26]"
+                      ? "bg-white/15 text-primary-foreground"
                       : "bg-muted/50 text-muted-foreground",
                   )}
                 >

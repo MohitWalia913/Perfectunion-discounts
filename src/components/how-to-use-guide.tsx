@@ -16,6 +16,16 @@ import { cn } from "@/lib/utils"
 /** Shared width + horizontal padding so hero and tabs/content align vertically. */
 const PAGE_MAX = "mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8"
 
+const HOW_TO_TAB_TRIGGER_CLASS = cn(
+  "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
+  "flex-none basis-auto",
+  "text-muted-foreground [&_svg]:shrink-0 [&_svg]:text-current [&_svg]:opacity-85",
+  "transition-colors hover:bg-primary/12 hover:text-primary hover:[&_svg]:opacity-100",
+  "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
+  "data-active:[&_svg]:text-primary-foreground data-active:[&_svg]:opacity-100",
+  "data-active:hover:bg-primary/92 data-active:hover:text-primary-foreground data-active:hover:[&_svg]:text-primary-foreground",
+)
+
 function GuideLink({
   href,
   children,
@@ -114,37 +124,16 @@ export function HowToUseGuide() {
               "items-stretch justify-center group-data-horizontal/tabs:h-auto",
             )}
           >
-            <TabsTrigger
-              value="bulk"
-              className={cn(
-                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
-                "flex-none basis-auto",
-                "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
-              )}
-            >
-              <UploadIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+            <TabsTrigger value="bulk" className={HOW_TO_TAB_TRIGGER_CLASS}>
+              <UploadIcon className="size-4" aria-hidden />
               Bulk create discounts
             </TabsTrigger>
-            <TabsTrigger
-              value="promo"
-              className={cn(
-                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
-                "flex-none basis-auto",
-                "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
-              )}
-            >
-              <MegaphoneIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+            <TabsTrigger value="promo" className={HOW_TO_TAB_TRIGGER_CLASS}>
+              <MegaphoneIcon className="size-4" aria-hidden />
               Sales Promo
             </TabsTrigger>
-            <TabsTrigger
-              value="users"
-              className={cn(
-                "relative inline-flex h-auto min-h-10 w-full max-w-none items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium leading-snug sm:min-h-9 sm:py-2 sm:text-sm",
-                "flex-none basis-auto",
-                "data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm",
-              )}
-            >
-              <UsersIcon className="size-4 shrink-0 opacity-80" aria-hidden />
+            <TabsTrigger value="users" className={HOW_TO_TAB_TRIGGER_CLASS}>
+              <UsersIcon className="size-4" aria-hidden />
               Users
             </TabsTrigger>
           </TabsList>
