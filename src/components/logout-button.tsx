@@ -8,6 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 function useLogout() {
@@ -60,7 +61,7 @@ export function LogoutButton() {
   )
 }
 
-export function LogoutSidebarMenuItem() {
+export function LogoutSidebarMenuItem({ className }: { className?: string }) {
   const { loading, handleLogout } = useLogout()
 
   return (
@@ -68,7 +69,11 @@ export function LogoutSidebarMenuItem() {
       <SidebarMenuButton
         onClick={handleLogout}
         disabled={loading}
-        tooltip="Logout"
+        tooltip="Log out"
+        className={cn(
+          "mt-0.5 border border-transparent text-sidebar-foreground/90 hover:border-destructive/15 hover:bg-destructive/10 hover:text-destructive [&_svg]:text-destructive/70 hover:[&_svg]:text-destructive",
+          className,
+        )}
       >
         {loading ? (
           <Loader2Icon className="size-4 animate-spin" />

@@ -61,6 +61,19 @@ const SIDEBAR_NAV = [
   },
 ] as const
 
+type NavDef = (typeof SIDEBAR_NAV)[number] | (typeof MORE_NAV)[number] | (typeof HELP_NAV)[number]
+
+/** Soft left-rail active state; icon-collapsed mode keeps a solid chip for clarity. */
+const SIDEBAR_NAV_LINK_CLASS = cn(
+  "border-l-[3px] border-l-transparent transition-[border-color,background-color,color,box-shadow] duration-150 ease-out",
+  "data-active:border-primary data-active:bg-primary/[0.08] data-active:!text-foreground data-active:[&_svg]:!text-primary",
+  "data-active:hover:bg-primary/[0.11] data-active:shadow-none",
+  "group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:data-active:!bg-sidebar-primary group-data-[collapsible=icon]:data-active:!text-sidebar-primary-foreground group-data-[collapsible=icon]:data-active:[&_svg]:!text-sidebar-primary-foreground group-data-[collapsible=icon]:data-active:hover:!bg-sidebar-primary/92",
+)
+
+const SECTION_LABEL_CLASS =
+  "text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50"
+
 /** Mobile dock keeps all destinations including Create. */
 const MOBILE_NAV = [
   {
@@ -90,6 +103,40 @@ function navLinkActive(pathname: string, href: string): boolean {
   return pathname === href
 }
 
+function NavMenuItems({
+  pathname,
+  items,
+}: {
+  pathname: string
+  items: readonly NavDef[]
+}) {
+  return (
+    <>
+      {items.map(({ href, label, icon: Icon }) => {
+        const active = navLinkActive(pathname, href)
+        return (
+          <SidebarMenuItem key={href}>
+            <SidebarMenuButton
+              isActive={active}
+              tooltip={label}
+              render={<Link href={href} />}
+              className={SIDEBAR_NAV_LINK_CLASS}
+            >
+              <Icon aria-hidden />
+              <span>{label}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </>
+  )
+}
+
+const SIDEBAR_SURFACE_CLASS = cn(
+  "[&_[data-slot=sidebar-inner]]:border-l [&_[data-slot=sidebar-inner]]:border-primary/[0.09]",
+  "[&_[data-slot=sidebar-inner]]:bg-gradient-to-b [&_[data-slot=sidebar-inner]]:from-sidebar [&_[data-slot=sidebar-inner]]:via-sidebar [&_[data-slot=sidebar-inner]]:to-primary/[0.04]",
+)
+
 export function DashboardShell({
   children,
   headerActions,
@@ -117,28 +164,31 @@ export function DashboardShell({
   return (
     <>
       <SidebarProvider open={open} onOpenChange={setOpen}>
-        <Sidebar collapsible="icon" variant="inset">
-          <SidebarHeader className="border-b border-sidebar-border p-2">
+        <Sidebar collapsible="icon" variant="inset" className={SIDEBAR_SURFACE_CLASS}>
+          <SidebarHeader className="border-b border-sidebar-border/80 p-3">
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   size="lg"
                   tooltip="Perfect Union"
                   render={<Link href="/dashboard" />}
+                  className="gap-3 rounded-xl border border-transparent transition-colors hover:border-primary/10 hover:bg-sidebar-accent/60"
                 >
-                  <span className="relative flex size-8 shrink-0 overflow-hidden rounded-md bg-muted/50 ring-1 ring-sidebar-border/60">
+                  <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-card to-primary/[0.07] p-0.5 shadow-sm ring-1 ring-primary/10">
                     <Image
                       src="/logo.webp"
                       alt=""
-                      width={32}
-                      height={32}
-                      className="object-contain p-1"
+                      width={40}
+                      height={40}
+                      className="size-9 object-contain p-1.5"
                       priority
                     />
                   </span>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Perfect Union</span>
-                    <span className="truncate text-xs text-sidebar-foreground/75">
+                  <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold tracking-tight text-sidebar-foreground">
+                      Perfect Union
+                    </span>
+                    <span className="truncate text-[11px] text-sidebar-foreground/65">
                       Discount manager
                     </span>
                   </div>
@@ -147,66 +197,45 @@ export function DashboardShell({
             </SidebarMenu>
           </SidebarHeader>
 
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarContent className="gap-0 overflow-x-hidden px-0">
+            <SidebarGroup className="pb-0 pt-3">
+              <SidebarGroupLabel className={SECTION_LABEL_CLASS}>Discounts</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {SIDEBAR_NAV.map(({ href, label, icon: Icon }) => {
-                    const active = navLinkActive(pathname, href)
-                    return (
-                      <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          isActive={active}
-                          tooltip={label}
-                          render={<Link href={href} />}
-                        >
-                          <Icon aria-hidden />
-                          <span>{label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                  {MORE_NAV.map(({ href, label, icon: Icon }) => {
-                    const active = pathname === href
-                    return (
-                      <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          isActive={active}
-                          tooltip={label}
-                          render={<Link href={href} />}
-                        >
-                          <Icon aria-hidden />
-                          <span>{label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
-                  {HELP_NAV.map(({ href, label, icon: Icon }) => {
-                    const active = pathname === href
-                    return (
-                      <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          isActive={active}
-                          tooltip={label}
-                          render={<Link href={href} />}
-                        >
-                          <Icon aria-hidden />
-                          <span>{label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
+                <SidebarMenu className="gap-0.5">
+                  <NavMenuItems pathname={pathname} items={SIDEBAR_NAV} />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="py-2">
+              <SidebarGroupLabel className={SECTION_LABEL_CLASS}>Workspace</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  <NavMenuItems pathname={pathname} items={MORE_NAV} />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="pb-2 pt-1">
+              <SidebarGroupLabel className={SECTION_LABEL_CLASS}>Guides</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  <NavMenuItems pathname={pathname} items={HELP_NAV} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="border-t border-sidebar-border">
-            <SidebarMenu>
-              {sidebarFooter}
-              <LogoutSidebarMenuItem />
-            </SidebarMenu>
+          <SidebarFooter className="gap-0 border-t border-sidebar-border/80 bg-sidebar-accent/25 p-0">
+            <SidebarGroup className="py-3">
+              <SidebarGroupLabel className={cn(SECTION_LABEL_CLASS, "px-4")}>Session</SidebarGroupLabel>
+              <SidebarGroupContent className="px-2">
+                <SidebarMenu className="gap-0.5">
+                  {sidebarFooter}
+                  <LogoutSidebarMenuItem />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>
@@ -241,7 +270,7 @@ export function DashboardShell({
                 key={href}
                 href={href}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[10px] font-medium transition-colors",
+                  "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[10px] font-medium transition-colors duration-150",
                   active
                     ? "bg-primary text-primary-foreground [&_svg]:text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -250,7 +279,7 @@ export function DashboardShell({
               >
                 <span
                   className={cn(
-                    "flex size-10 items-center justify-center rounded-xl transition-colors",
+                    "flex size-10 items-center justify-center rounded-xl transition-colors duration-150",
                     active
                       ? "bg-white/15 text-primary-foreground"
                       : "bg-muted/50 text-muted-foreground",

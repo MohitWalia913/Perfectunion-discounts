@@ -164,6 +164,7 @@ export function DiscountDashboardView() {
         tooltip="Refresh discounts"
         disabled={refreshing || showSkeleton}
         onClick={() => void runFetch(true)}
+        className="text-sidebar-foreground/85 hover:text-sidebar-foreground"
       >
         <RefreshCwIcon className={cn("size-4", refreshing && "animate-spin")} aria-hidden />
         <span>Refresh</span>
