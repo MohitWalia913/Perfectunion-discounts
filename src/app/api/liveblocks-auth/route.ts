@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const session = liveblocks.prepareSession(profile.id, {
     userInfo: {
       name: profile.full_name?.trim() || profile.email || "User",
+      color: colorForCollaborator(profile.id),
     },
   })
   session.allow(room, session.FULL_ACCESS)
@@ -54,4 +55,15 @@ export async function POST(request: Request) {
   }
 
   return new NextResponse(auth.body, { status: auth.status })
+}
+
+/** Stable HSL for Liveblocks avatars / cursors (aligned with starter kit style). */
+function colorForCollaborator(seed: string): string {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  const hue = (h >>> 0) % 360
+  return `hsl(${hue} 58% 42%)`
 }

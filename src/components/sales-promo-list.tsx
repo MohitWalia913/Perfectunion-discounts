@@ -14,15 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Loader2Icon, PlusIcon, Trash2Icon } from "lucide-react"
+import { Loader2Icon, MegaphoneIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 type Creator = {
@@ -143,92 +135,96 @@ export function SalesPromoList() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 p-4 md:p-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-            Sales Promo
-          </h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-relaxed">
-            Collaborative promo docs with live editing. Admins create and share;
-            managers only see documents shared with them.
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl space-y-2">
+          <div className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            Workspace
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Sales Promo</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Live documents for promos and scripts. Admins can create and share; managers only see
+            what is shared with them.
           </p>
         </div>
         {canManage ? (
-          <Button size="sm" type="button" onClick={() => setCreateOpen(true)}>
-            <PlusIcon data-icon="inline-start" />
+          <Button size="sm" type="button" className="shrink-0 gap-2 self-start lg:self-auto" onClick={() => setCreateOpen(true)}>
+            <PlusIcon className="size-4" />
             New promo doc
           </Button>
         ) : null}
       </header>
 
-      <div className="border-border bg-background overflow-hidden rounded-xl border">
+      <div className="border-border/80 bg-muted/15 rounded-2xl border p-3 sm:p-4">
         {loading ? (
-          <div className="text-muted-foreground flex items-center gap-2 px-4 py-12 text-sm">
+          <div className="text-muted-foreground flex items-center gap-2 px-2 py-16 text-sm">
             <Loader2Icon className="size-4 animate-spin" />
             Loading documents…
           </div>
         ) : docs.length === 0 ? (
-          <div className="text-muted-foreground px-4 py-12 text-sm">
-            {canManage
-              ? "No promo documents yet — create one to collaborate in real time."
-              : "Nothing has been shared with you yet."}
+          <div className="text-muted-foreground px-2 py-16 text-center text-sm leading-relaxed">
+            {canManage ? (
+              <>
+                <p>No promo documents yet.</p>
+                <p className="mt-2">Create one to collaborate in real time.</p>
+              </>
+            ) : (
+              <p>Nothing has been shared with you yet.</p>
+            )}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[12rem]">Title</TableHead>
-                {canManage ? (
-                  <TableHead className="hidden md:table-cell">Creator</TableHead>
-                ) : null}
-                <TableHead className="hidden md:table-cell whitespace-nowrap">
-                  Updated
-                </TableHead>
-                <TableHead className="text-end"> </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {docs.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.title}</TableCell>
-                  {canManage ? (
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                      {creatorLabel(d.creator)}
-                    </TableCell>
-                  ) : null}
-                  <TableCell className="hidden md:table-cell text-muted-foreground whitespace-nowrap text-xs">
-                    {formatDate(d.updated_at)}
-                  </TableCell>
-                  <TableCell className="text-end whitespace-nowrap">
-                    <div className="inline-flex gap-1">
-                      <Link
-                        href={`/dashboard/sales-promo/${d.id}`}
-                        className={cn(buttonVariants({ variant: "outline", size: "xs" }))}
-                      >
-                        Open
-                      </Link>
-                      {canManage ? (
-                        <Button
-                          variant="destructive"
-                          size="icon-xs"
-                          title="Delete"
-                          type="button"
-                          disabled={deletingId === d.id}
-                          onClick={() => void deleteDoc(d.id, d.title)}
-                        >
-                          {deletingId === d.id ? (
-                            <Loader2Icon className="size-3.5 animate-spin" />
-                          ) : (
-                            <Trash2Icon className="size-3.5" />
-                          )}
-                        </Button>
-                      ) : null}
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {docs.map((d) => (
+              <li key={d.id}>
+                <article
+                  className={cn(
+                    "border-border/80 bg-card group flex h-full flex-col rounded-xl border shadow-sm transition-shadow",
+                    "hover:border-border hover:shadow-md",
+                  )}
+                >
+                  <div className="flex items-start gap-3 p-4">
+                    <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-lg">
+                      <MegaphoneIcon className="size-5" aria-hidden />
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="truncate text-sm font-semibold tracking-tight">{d.title}</h2>
+                      <div className="text-muted-foreground mt-1 space-y-0.5 text-xs">
+                        {canManage ? (
+                          <p className="truncate">By {creatorLabel(d.creator)}</p>
+                        ) : null}
+                        <p className="whitespace-nowrap">Updated {formatDate(d.updated_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-border/60 mt-auto flex items-center justify-end gap-2 border-t px-3 py-2">
+                    <Link
+                      href={`/dashboard/sales-promo/${d.id}`}
+                      className={cn(buttonVariants({ variant: "default", size: "xs" }), "flex-1 sm:flex-none")}
+                    >
+                      Open
+                    </Link>
+                    {canManage ? (
+                      <Button
+                        variant="outline"
+                        size="icon-xs"
+                        title="Delete"
+                        type="button"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletingId === d.id}
+                        onClick={() => void deleteDoc(d.id, d.title)}
+                      >
+                        {deletingId === d.id ? (
+                          <Loader2Icon className="size-3.5 animate-spin" />
+                        ) : (
+                          <Trash2Icon className="size-3.5" />
+                        )}
+                      </Button>
+                    ) : null}
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -237,7 +233,7 @@ export function SalesPromoList() {
           <DialogHeader>
             <DialogTitle>New promo document</DialogTitle>
             <DialogDescription>
-              Opens the live editor. You can rename and share it from the doc page.
+              Opens the live editor. You can rename and share it from the document page.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
