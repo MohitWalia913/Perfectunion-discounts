@@ -441,7 +441,7 @@ export function BulkDiscountBuilder({
                           </th>
                         </>
                       ) : null}
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[176px] w-[176px] whitespace-nowrap">
+                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[132px] w-[132px] whitespace-nowrap">
                         Type *
                       </th>
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[200px]">
@@ -519,19 +519,19 @@ export function BulkDiscountBuilder({
                             </td>
                           </>
                         ) : null}
-                        <td className="px-2 py-2 align-middle whitespace-nowrap min-w-[176px]">
+                        <td className="px-2 py-2 align-middle whitespace-nowrap w-[132px] min-w-[132px]">
                           <Popover
                             open={openPopoverKey === popK(row.id, "dtype")}
                             onOpenChange={onPopChange(row.id, "dtype")}
                           >
-                            <PopoverTrigger className="inline-flex h-9 w-full min-w-[160px] max-w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                              <span className="whitespace-nowrap text-left">
+                            <PopoverTrigger className="inline-flex h-8 w-full min-w-0 max-w-full items-center justify-between gap-1 whitespace-nowrap rounded-md border border-input bg-background px-2 py-1 text-left text-xs font-medium leading-none tracking-tight ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                              <span className="text-left leading-none whitespace-nowrap">
                                 {row.discountType === "FUN_FRIDAY" && "Fun Friday"}
                                 {row.discountType === "HOTBOX" && "Hotbox"}
                                 {row.discountType === "DAILY_SPECIAL" && "Daily Special"}
                                 {row.discountType === "CUSTOM" && "Custom"}
                               </span>
-                              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" />
+                              <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
                             </PopoverTrigger>
                             <PopoverContent className="w-[180px] p-1" align="start">
                               <div className="space-y-1">
