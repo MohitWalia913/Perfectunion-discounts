@@ -457,7 +457,7 @@ export function UsersManagement() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-name">Full name (optional)</Label>
+              <Label htmlFor="new-name">Full name</Label>
               <Input
                 id="new-name"
                 value={fullName}

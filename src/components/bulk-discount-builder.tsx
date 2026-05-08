@@ -72,6 +72,16 @@ export function BulkDiscountBuilder({
   const [loadingDraft, setLoadingDraft] = React.useState(mode === "draft")
   const [publishSelection, setPublishSelection] = React.useState<Set<string>>(() => new Set())
 
+  /** Which table popover is open — `${rowId}:${slot}` so pickers close after selection. */
+  const [openPopoverKey, setOpenPopoverKey] = React.useState<string | null>(null)
+
+  const popK = (rowId: string, slot: string) => `${rowId}:${slot}`
+  const onPopChange = (rowId: string, slot: string) => (nextOpen: boolean) => {
+    const k = popK(rowId, slot)
+    if (nextOpen) setOpenPopoverKey(k)
+    else setOpenPopoverKey((prev) => (prev === k ? null : prev))
+  }
+
   React.useEffect(() => {
     fetchStoresAndCollections()
   }, [])
@@ -509,7 +519,10 @@ export function BulkDiscountBuilder({
                           </>
                         ) : null}
                         <td className="px-2 py-2">
-                          <Popover>
+                          <Popover
+                            open={openPopoverKey === popK(row.id, "dtype")}
+                            onOpenChange={onPopChange(row.id, "dtype")}
+                          >
                             <PopoverTrigger className="inline-flex items-center justify-between w-full h-9 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                               <span>
                                 {row.discountType === "FUN_FRIDAY" && "Fun Friday"}
@@ -527,7 +540,10 @@ export function BulkDiscountBuilder({
                                     "w-full justify-start text-sm h-9",
                                     row.discountType === "FUN_FRIDAY" && "bg-muted"
                                   )}
-                                  onClick={() => updateRow(row.id, { discountType: "FUN_FRIDAY" })}
+                                  onClick={() => {
+                                    updateRow(row.id, { discountType: "FUN_FRIDAY" })
+                                    setOpenPopoverKey(null)
+                                  }}
                                 >
                                   Fun Friday
                                 </Button>
@@ -537,7 +553,10 @@ export function BulkDiscountBuilder({
                                     "w-full justify-start text-sm h-9",
                                     row.discountType === "HOTBOX" && "bg-muted"
                                   )}
-                                  onClick={() => updateRow(row.id, { discountType: "HOTBOX" })}
+                                  onClick={() => {
+                                    updateRow(row.id, { discountType: "HOTBOX" })
+                                    setOpenPopoverKey(null)
+                                  }}
                                 >
                                   Hotbox
                                 </Button>
@@ -547,7 +566,10 @@ export function BulkDiscountBuilder({
                                     "w-full justify-start text-sm h-9",
                                     row.discountType === "DAILY_SPECIAL" && "bg-muted"
                                   )}
-                                  onClick={() => updateRow(row.id, { discountType: "DAILY_SPECIAL" })}
+                                  onClick={() => {
+                                    updateRow(row.id, { discountType: "DAILY_SPECIAL" })
+                                    setOpenPopoverKey(null)
+                                  }}
                                 >
                                   Daily Special
                                 </Button>
@@ -557,7 +579,10 @@ export function BulkDiscountBuilder({
                                     "w-full justify-start text-sm h-9",
                                     row.discountType === "CUSTOM" && "bg-muted"
                                   )}
-                                  onClick={() => updateRow(row.id, { discountType: "CUSTOM" })}
+                                  onClick={() => {
+                                    updateRow(row.id, { discountType: "CUSTOM" })
+                                    setOpenPopoverKey(null)
+                                  }}
                                 >
                                   Custom
                                 </Button>
@@ -653,7 +678,10 @@ export function BulkDiscountBuilder({
                           </Popover>
                         </td>
                         <td className="px-2 py-2">
-                          <Popover>
+                          <Popover
+                            open={openPopoverKey === popK(row.id, "start")}
+                            onOpenChange={onPopChange(row.id, "start")}
+                          >
                             <PopoverTrigger className={cn(
                               "inline-flex items-center justify-start w-full h-8 rounded-md border border-input bg-background px-2 py-1.5 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                               !row.startDate && "text-muted-foreground"
@@ -665,14 +693,20 @@ export function BulkDiscountBuilder({
                               <Calendar
                                 mode="single"
                                 selected={row.startDate}
-                                onSelect={(date) => updateRow(row.id, { startDate: date })}
+                                onSelect={(date) => {
+                                  updateRow(row.id, { startDate: date })
+                                  setOpenPopoverKey(null)
+                                }}
                                 initialFocus
                               />
                             </PopoverContent>
                           </Popover>
                         </td>
                         <td className="px-2 py-2">
-                          <Popover>
+                          <Popover
+                            open={openPopoverKey === popK(row.id, "end")}
+                            onOpenChange={onPopChange(row.id, "end")}
+                          >
                             <PopoverTrigger className={cn(
                               "inline-flex items-center justify-start w-full h-8 rounded-md border border-input bg-background px-2 py-1.5 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                               !row.endDate && "text-muted-foreground"
@@ -684,7 +718,10 @@ export function BulkDiscountBuilder({
                               <Calendar
                                 mode="single"
                                 selected={row.endDate}
-                                onSelect={(date) => updateRow(row.id, { endDate: date })}
+                                onSelect={(date) => {
+                                  updateRow(row.id, { endDate: date })
+                                  setOpenPopoverKey(null)
+                                }}
                                 disabled={(date) => row.startDate ? date < row.startDate : false}
                               />
                             </PopoverContent>
@@ -717,7 +754,10 @@ export function BulkDiscountBuilder({
                               </Button>
                             </div>
                             {row.repeat ? (
-                              <Popover>
+                              <Popover
+                                open={openPopoverKey === popK(row.id, "repeat")}
+                                onOpenChange={onPopChange(row.id, "repeat")}
+                              >
                                 <PopoverTrigger
                                   className={cn(
                                     "inline-flex h-7 min-w-0 flex-1 items-center justify-between gap-0.5 rounded-md border border-input bg-background px-1.5 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -738,7 +778,10 @@ export function BulkDiscountBuilder({
                                         "h-8 w-full justify-start text-xs",
                                         row.repeatType === "DAY" && "bg-muted"
                                       )}
-                                      onClick={() => updateRow(row.id, { repeatType: "DAY" })}
+                                      onClick={() => {
+                                        updateRow(row.id, { repeatType: "DAY" })
+                                        setOpenPopoverKey(null)
+                                      }}
                                     >
                                       Daily
                                     </Button>
@@ -748,7 +791,10 @@ export function BulkDiscountBuilder({
                                         "h-8 w-full justify-start text-xs",
                                         row.repeatType === "WEEK" && "bg-muted"
                                       )}
-                                      onClick={() => updateRow(row.id, { repeatType: "WEEK" })}
+                                      onClick={() => {
+                                        updateRow(row.id, { repeatType: "WEEK" })
+                                        setOpenPopoverKey(null)
+                                      }}
                                     >
                                       Weekly (same day)
                                     </Button>
@@ -758,7 +804,10 @@ export function BulkDiscountBuilder({
                                         "h-8 w-full justify-start text-xs",
                                         row.repeatType === "MONTH" && "bg-muted"
                                       )}
-                                      onClick={() => updateRow(row.id, { repeatType: "MONTH" })}
+                                      onClick={() => {
+                                        updateRow(row.id, { repeatType: "MONTH" })
+                                        setOpenPopoverKey(null)
+                                      }}
                                     >
                                       Monthly (same day)
                                     </Button>
