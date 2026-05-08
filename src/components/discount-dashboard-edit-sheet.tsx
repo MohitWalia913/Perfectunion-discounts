@@ -34,38 +34,9 @@ import {
   rowToEditDraft,
   sanitizeDiscountPayload,
 } from "@/lib/discount-edit-helpers"
-import { summarizeConditions } from "@/lib/discount-format"
 import { cn } from "@/lib/utils"
 import { CalendarIcon, ChevronDownIcon, Loader2Icon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
-
-/** Same flag keys as bulk upload payload; shown read-only (full `conditions` object is preserved on save). */
-const CONDITION_FLAG_KEYS = [
-  "customerCapEnabled",
-  "customerLimitEnabled",
-  "purchaseMinimumEnabled",
-  "customerEventEnabled",
-  "itemLimitEnabled",
-  "customerLicenseTypeEnabled",
-  "packageAgeEnabled",
-  "fulfillmentTypesEnabled",
-] as const
-
-const CONDITION_LABELS: Record<(typeof CONDITION_FLAG_KEYS)[number], string> = {
-  customerCapEnabled: "Customer cap",
-  customerLimitEnabled: "Customer limit",
-  purchaseMinimumEnabled: "Purchase minimum",
-  customerEventEnabled: "Customer event",
-  itemLimitEnabled: "Item limit",
-  customerLicenseTypeEnabled: "Customer license type",
-  packageAgeEnabled: "Package age",
-  fulfillmentTypesEnabled: "Fulfillment types",
-}
-
-function conditionFlagOn(conditions: unknown, key: string): boolean {
-  if (!conditions || typeof conditions !== "object") return false
-  return (conditions as Record<string, unknown>)[key] === true
-}
 
 function parseDraftDate(iso: string): Date | undefined {
   const t = iso.trim()
@@ -226,8 +197,7 @@ export function DiscountDashboardEditSheet(props: {
         <SheetHeader className="shrink-0 gap-2 border-b border-border/80 px-4 py-4 text-left md:px-6">
           <SheetTitle>Edit discount</SheetTitle>
           <SheetDescription>
-            Update locations, collections, and schedule. Rule conditions from Treez stay on the record
-            unchanged when you save (same idea as bulk create).
+            Update locations, collections, schedule, and repeat — same repeat controls as bulk create.
           </SheetDescription>
         </SheetHeader>
 
@@ -479,38 +449,110 @@ export function DiscountDashboardEditSheet(props: {
 
                 <Separator />
 
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Conditions
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Repeat</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Same pattern as bulk create: turn recurrence on, then pick daily, weekly, or monthly.
                   </p>
-                  {row?.conditions && typeof row.conditions === "object" ? (
-                    <>
-                      <p className="text-sm leading-snug text-foreground">
-                        {summarizeConditions(row.conditions as Record<string, unknown>)}
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {CONDITION_FLAG_KEYS.map((k) => (
-                          <div
-                            key={k}
-                            className="flex items-start gap-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2"
-                          >
-                            <Checkbox
-                              checked={conditionFlagOn(row.conditions, k)}
-                              disabled
-                              className="mt-0.5 pointer-events-none opacity-100"
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <Button
+                        type="button"
+                        variant={draft.repeat ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "h-8 px-2.5 text-xs",
+                          draft.repeat && "bg-[#1A1E26] hover:bg-[#1A1E26]/90",
+                        )}
+                        onClick={() =>
+                          setDraft({
+                            ...draft,
+                            repeat: true,
+                            repeatType: "DAY",
+                          })
+                        }
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={!draft.repeat ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "h-8 px-2.5 text-xs",
+                          !draft.repeat && "bg-[#1A1E26] hover:bg-[#1A1E26]/90",
+                        )}
+                        onClick={() =>
+                          setDraft({
+                            ...draft,
+                            repeat: false,
+                            repeatType: "DO_NOT",
+                          })
+                        }
+                      >
+                        No
+                      </Button>
+                    </div>
+                    {draft.repeat ? (
+                      <Popover>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="inline-flex h-8 min-w-0 max-w-full flex-1 items-center justify-between gap-1 px-2 text-left text-xs font-normal sm:max-w-[14rem]"
                             />
-                            <span className="text-sm leading-snug">{CONDITION_LABELS[k]}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Same layout as bulk create; flags are read-only here. Saving keeps the full
-                        conditions object from Treez (including any nested rules).
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No conditions on this discount.</p>
-                  )}
+                          }
+                        >
+                          <span className="min-w-0 truncate">
+                            {draft.repeatType === "DAY" && "Daily"}
+                            {draft.repeatType === "WEEK" && "Weekly (same day)"}
+                            {draft.repeatType === "MONTH" && "Monthly (same day)"}
+                            {draft.repeatType === "DO_NOT" && "Daily"}
+                          </span>
+                          <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="z-[210] w-[220px] space-y-1 p-1.5"
+                          align="start"
+                        >
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn(
+                              "h-8 w-full justify-start text-xs",
+                              draft.repeatType === "DAY" && "bg-muted",
+                            )}
+                            onClick={() => setDraft({ ...draft, repeatType: "DAY" })}
+                          >
+                            Daily
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn(
+                              "h-8 w-full justify-start text-xs",
+                              draft.repeatType === "WEEK" && "bg-muted",
+                            )}
+                            onClick={() => setDraft({ ...draft, repeatType: "WEEK" })}
+                          >
+                            Weekly (same day)
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn(
+                              "h-8 w-full justify-start text-xs",
+                              draft.repeatType === "MONTH" && "bg-muted",
+                            )}
+                            onClick={() => setDraft({ ...draft, repeatType: "MONTH" })}
+                          >
+                            Monthly (same day)
+                          </Button>
+                        </PopoverContent>
+                      </Popover>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </ScrollArea>

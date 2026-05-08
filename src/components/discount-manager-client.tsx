@@ -27,6 +27,7 @@ import {
   getDiscountRowId,
   getDiscountTitle,
   getScheduleEndDateISO,
+  getScheduleRepeatType,
   getScheduleStartDateISO,
   normalizeMethodTab,
   type DiscountRow,
@@ -151,6 +152,53 @@ function rowMatchesStore(row: DiscountRow, selected: Set<string>, allStores: str
   return false
 }
 
+type ScheduleScopeFilter =
+  | "all"
+  | "has_start"
+  | "has_end"
+  | "start_and_end"
+  | "no_repeat"
+  | "repeat_day"
+  | "repeat_week"
+  | "repeat_month"
+
+function rowMatchesScheduleScope(row: DiscountRow, f: ScheduleScopeFilter): boolean {
+  const start = getScheduleStartDateISO(row)
+  const end = getScheduleEndDateISO(row)
+  const rt = getScheduleRepeatType(row)
+  switch (f) {
+    case "all":
+      return true
+    case "has_start":
+      return start != null
+    case "has_end":
+      return end != null
+    case "start_and_end":
+      return start != null && end != null
+    case "no_repeat":
+      return rt === null || rt === "DO_NOT"
+    case "repeat_day":
+      return rt === "DAY"
+    case "repeat_week":
+      return rt === "WEEK"
+    case "repeat_month":
+      return rt === "MONTH"
+    default:
+      return true
+  }
+}
+
+const SCHEDULE_FILTER_LABELS: Record<ScheduleScopeFilter, string> = {
+  all: "All schedules",
+  has_start: "Has start date",
+  has_end: "Has end date",
+  start_and_end: "Start & end dates",
+  no_repeat: "Does not repeat",
+  repeat_day: "Repeats daily",
+  repeat_week: "Repeats weekly",
+  repeat_month: "Repeats monthly",
+}
+
 export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   const [page, setPage] = React.useState(1)
 
@@ -180,6 +228,8 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   // New states for bulk delete and search
   const [selectedDiscounts, setSelectedDiscounts] = React.useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = React.useState("")
+
+  const [scheduleScope, setScheduleScope] = React.useState<ScheduleScopeFilter>("all")
 
   const [editSheetOpen, setEditSheetOpen] = React.useState(false)
   const [sheetRow, setSheetRow] = React.useState<DiscountRow | null>(null)
@@ -265,7 +315,8 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     let filtered = percentRows.filter(
       (r) =>
         rowMatchesStatus(r, includeActive, includeInactive) &&
-        rowMatchesStore(r, selectedStores, allStores),
+        rowMatchesStore(r, selectedStores, allStores) &&
+        rowMatchesScheduleScope(r, scheduleScope),
     )
     
     // Apply search filter
@@ -284,13 +335,13 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     }
     
     return filtered
-  }, [percentRows, includeActive, includeInactive, selectedStores, allStores, searchQuery])
+  }, [percentRows, includeActive, includeInactive, selectedStores, allStores, searchQuery, scheduleScope])
 
   const filtered = baseFiltered
 
   React.useEffect(() => {
     setPage(1)
-  }, [baseFiltered.length, searchQuery, includeActive, includeInactive, selectedStores])
+  }, [baseFiltered.length, searchQuery, includeActive, includeInactive, selectedStores, scheduleScope])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageClamped = Math.min(page, totalPages)
@@ -697,6 +748,49 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                   </PopoverContent>
                 </Popover>
               ) : null}
+
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                    />
+                  }
+                >
+                  {scheduleScope !== "all" ? (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
+                      1
+                    </span>
+                  ) : null}
+                  Schedule
+                  <ChevronDownIcon className="size-4 opacity-60" />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
+                  <div className="border-b border-border/60 bg-muted/30 p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">
+                      Filter by schedule
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Narrow by start/end dates on the discount schedule or by repeat type (Treez repeatType).
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-px bg-popover p-2">
+                    {(Object.keys(SCHEDULE_FILTER_LABELS) as ScheduleScopeFilter[]).map((key) => (
+                      <Button
+                        key={key}
+                        type="button"
+                        variant={scheduleScope === key ? "secondary" : "ghost"}
+                        className="h-9 w-full justify-start text-sm font-normal"
+                        onClick={() => setScheduleScope(key)}
+                      >
+                        {SCHEDULE_FILTER_LABELS[key]}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
           <span
@@ -716,6 +810,11 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           {storeNarrowed ? (
             <span className="inline-flex items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground tabular-nums">
               {selectedStores.size} stores
+            </span>
+          ) : null}
+          {scheduleScope !== "all" ? (
+            <span className="inline-flex max-w-[min(100%,20rem)] items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground">
+              {SCHEDULE_FILTER_LABELS[scheduleScope]}
             </span>
           ) : null}
         </div>

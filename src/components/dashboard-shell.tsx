@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   BookOpenIcon,
   CirclePlusIcon,
+  FileStackIcon,
   HelpCircleIcon,
   LayoutGridIcon,
   MegaphoneIcon,
@@ -53,6 +54,11 @@ const SIDEBAR_NAV = [
     label: "Bulk upload discounts",
     icon: UploadIcon,
   },
+  {
+    href: "/dashboard/discounts/drafts",
+    label: "Bulk drafts",
+    icon: FileStackIcon,
+  },
 ] as const
 
 /** Mobile dock keeps all destinations including Create. */
@@ -98,7 +104,9 @@ export function DashboardShell({
 
   const collapseForBulk =
     pathname === "/dashboard/discounts/bulk-upload" ||
-    pathname.startsWith("/dashboard/discounts/bulk-upload/")
+    pathname.startsWith("/dashboard/discounts/bulk-upload/") ||
+    pathname === "/dashboard/discounts/drafts" ||
+    pathname.startsWith("/dashboard/discounts/drafts/")
 
   const [open, setOpen] = React.useState(!collapseForBulk)
 

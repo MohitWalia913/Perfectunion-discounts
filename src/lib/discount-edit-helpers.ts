@@ -10,6 +10,9 @@ export type StoreEntityDraft = { id: string; name: string }
 
 export type CollectionEntityDraft = { id: string; name: string }
 
+/** Matches bulk-upload schedule repeat behavior */
+export type EditScheduleRepeatType = "DAY" | "WEEK" | "MONTH" | "DO_NOT"
+
 export type DiscountEditDraft = {
   title: string
   amount: string
@@ -18,6 +21,9 @@ export type DiscountEditDraft = {
   /** YYYY-MM-DD or empty */
   startDate: string
   endDate: string
+  /** When false, Treez `repeatType` is `DO_NOT` (same as bulk “No”). */
+  repeat: boolean
+  repeatType: EditScheduleRepeatType
 }
 
 function resolveStoreId(
@@ -94,6 +100,17 @@ export function rowToEditDraft(
   let amount = getDiscountAmount(row)
   if (amount === "—") amount = ""
 
+  const sched =
+    row.schedule && typeof row.schedule === "object"
+      ? (row.schedule as Record<string, unknown>)
+      : {}
+  const rtRaw = sched.repeatType
+  const repeatTypeParsed: EditScheduleRepeatType =
+    rtRaw === "DAY" || rtRaw === "WEEK" || rtRaw === "MONTH" || rtRaw === "DO_NOT"
+      ? rtRaw
+      : "DO_NOT"
+  const repeat = repeatTypeParsed !== "DO_NOT"
+
   return {
     title: getDiscountTitle(row) ?? "",
     amount,
@@ -101,6 +118,8 @@ export function rowToEditDraft(
     collections,
     startDate: start,
     endDate: end,
+    repeat,
+    repeatType: repeatTypeParsed,
   }
 }
 
@@ -145,7 +164,11 @@ export function mergeRowWithEditDraft(row: DiscountRow, draft: DiscountEditDraft
     endTime: typeof schedClean.endTime === "string" ? schedClean.endTime : "23:59:59",
     allDay: typeof schedClean.allDay === "boolean" ? schedClean.allDay : true,
     spansMultipleDays: typeof schedClean.spansMultipleDays === "boolean" ? schedClean.spansMultipleDays : false,
-    repeatType: typeof schedClean.repeatType === "string" ? schedClean.repeatType : "DO_NOT",
+    repeatType: draft.repeat
+      ? draft.repeatType === "DO_NOT"
+        ? "DAY"
+        : draft.repeatType
+      : "DO_NOT",
   }
 
   const prevConditions =

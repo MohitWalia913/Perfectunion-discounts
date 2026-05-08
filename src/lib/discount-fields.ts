@@ -157,6 +157,17 @@ export function getScheduleEndDateISO(row: DiscountRow): string | null {
   return null
 }
 
+/** Treez `schedule.repeatType`: DO_NOT, DAY, WEEK, MONTH, etc. */
+export function getScheduleRepeatType(
+  row: DiscountRow,
+): "DO_NOT" | "DAY" | "WEEK" | "MONTH" | string | null {
+  const schedule = row.schedule
+  if (!schedule || typeof schedule !== "object") return null
+  const raw = (schedule as Record<string, unknown>).repeatType
+  if (typeof raw !== "string" || !raw.trim()) return null
+  return raw.trim().toUpperCase()
+}
+
 const DETAIL_KEYS = [
   "organizationId",
   "storeCustomizations",
