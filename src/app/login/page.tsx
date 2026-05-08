@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Image from "next/image"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { FileStackIcon, LayoutGridIcon, Loader2Icon, LogInIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -165,12 +164,6 @@ export default function LoginPage() {
                 </p>
               </form>
             </div>
-
-            <p className="mt-6 text-center text-xs text-muted-foreground">
-              <Link href="/" className="underline-offset-2 hover:text-foreground hover:underline">
-                Back to home
-              </Link>
-            </p>
           </div>
         </div>
       </div>
