@@ -93,8 +93,12 @@ export function generateBulkTitle(row: BulkDiscountRow): string {
           : "DATE"
       return `HOTBOX ON ${startDateMonth} TO ${endDateMonth} END - ${percentage}% OFF`
     }
-    case "DAILY_SPECIAL":
-      return `${firstCollection} - ${percentage}% OFF`
+    case "DAILY_SPECIAL": {
+      const base = `${firstCollection} - ${percentage}% OFF`
+      if (!row.startDate) return base
+      const dow = format(row.startDate, "EEE").toUpperCase()
+      return `${base} [${dow}]`
+    }
     default:
       return ""
   }

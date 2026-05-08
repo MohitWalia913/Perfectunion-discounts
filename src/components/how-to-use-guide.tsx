@@ -245,7 +245,7 @@ export function HowToUseGuide() {
                   items={[
                     'Fun Friday: "FUN FRIDAY ON {START} - {pct}% OFF" (start formatted as shown in the table).',
                     'Hotbox: "HOTBOX ON {START} TO {END} END - {pct}% OFF" (End falls back to Start if omitted).',
-                    'Daily Special: "{FIRST_COLLECTION} - {pct}% OFF" (first selected collection in the row).',
+                    'Daily Special: "{FIRST_COLLECTION} - {pct}% OFF [{DAY}]" (first collection; {DAY} is the weekday abbreviation from Start, e.g. MON).',
                     "Custom: you must enter the full title manually in the Title field.",
                   ]}
                 />
