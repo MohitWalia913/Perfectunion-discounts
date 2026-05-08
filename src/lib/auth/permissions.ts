@@ -1,5 +1,10 @@
 import type { AppRole, ProfileRow } from "@/lib/auth/types"
 
+/** Create promo docs, list everyone’s docs, manage shares, delete docs. */
+export function canManageSalesPromo(actor: ProfileRow): boolean {
+  return actor.role === "master_admin" || actor.role === "admin"
+}
+
 export function canCreateRole(actor: AppRole, target: AppRole): boolean {
   if (actor === "manager") return false
   if (actor === "master_admin") return target === "admin" || target === "manager"

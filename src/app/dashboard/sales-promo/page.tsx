@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { DashboardShell } from "@/components/dashboard-shell"
-import { DashboardPlaceholderPage } from "@/components/dashboard-placeholder-page"
+import { SalesPromoList } from "@/components/sales-promo-list"
 
 export const metadata: Metadata = {
   title: "Sales Promo · Perfect Union",
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function SalesPromoPage() {
   return (
     <DashboardShell>
-      <DashboardPlaceholderPage title="Sales Promo" />
+      <SalesPromoList />
     </DashboardShell>
   )
 }
