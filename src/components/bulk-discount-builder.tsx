@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
+  PopoverClose,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
@@ -534,58 +535,35 @@ export function BulkDiscountBuilder({
                             </PopoverTrigger>
                             <PopoverContent className="w-[180px] p-1" align="start">
                               <div className="space-y-1">
-                                <Button
-                                  variant="ghost"
-                                  className={cn(
-                                    "w-full justify-start text-sm h-9",
-                                    row.discountType === "FUN_FRIDAY" && "bg-muted"
-                                  )}
-                                  onClick={() => {
-                                    updateRow(row.id, { discountType: "FUN_FRIDAY" })
-                                    setOpenPopoverKey(null)
-                                  }}
-                                >
-                                  Fun Friday
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className={cn(
-                                    "w-full justify-start text-sm h-9",
-                                    row.discountType === "HOTBOX" && "bg-muted"
-                                  )}
-                                  onClick={() => {
-                                    updateRow(row.id, { discountType: "HOTBOX" })
-                                    setOpenPopoverKey(null)
-                                  }}
-                                >
-                                  Hotbox
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className={cn(
-                                    "w-full justify-start text-sm h-9",
-                                    row.discountType === "DAILY_SPECIAL" && "bg-muted"
-                                  )}
-                                  onClick={() => {
-                                    updateRow(row.id, { discountType: "DAILY_SPECIAL" })
-                                    setOpenPopoverKey(null)
-                                  }}
-                                >
-                                  Daily Special
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  className={cn(
-                                    "w-full justify-start text-sm h-9",
-                                    row.discountType === "CUSTOM" && "bg-muted"
-                                  )}
-                                  onClick={() => {
-                                    updateRow(row.id, { discountType: "CUSTOM" })
-                                    setOpenPopoverKey(null)
-                                  }}
-                                >
-                                  Custom
-                                </Button>
+                                {(
+                                  [
+                                    { type: "FUN_FRIDAY" as const, label: "Fun Friday" },
+                                    { type: "HOTBOX" as const, label: "Hotbox" },
+                                    { type: "DAILY_SPECIAL" as const, label: "Daily Special" },
+                                    { type: "CUSTOM" as const, label: "Custom" },
+                                  ] as const
+                                ).map(({ type, label }) => (
+                                  <PopoverClose
+                                    key={type}
+                                    render={(closeProps) => (
+                                      <Button
+                                        type="button"
+                                        {...closeProps}
+                                        variant="ghost"
+                                        className={cn(
+                                          "h-9 w-full justify-start text-sm",
+                                          row.discountType === type && "bg-muted",
+                                        )}
+                                        onClick={(event) => {
+                                          closeProps.onClick?.(event)
+                                          updateRow(row.id, { discountType: type })
+                                        }}
+                                      >
+                                        {label}
+                                      </Button>
+                                    )}
+                                  />
+                                ))}
                               </div>
                             </PopoverContent>
                           </Popover>
@@ -772,45 +750,34 @@ export function BulkDiscountBuilder({
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[200px] p-1" align="start">
                                   <div className="space-y-1">
-                                    <Button
-                                      variant="ghost"
-                                      className={cn(
-                                        "h-8 w-full justify-start text-xs",
-                                        row.repeatType === "DAY" && "bg-muted"
-                                      )}
-                                      onClick={() => {
-                                        updateRow(row.id, { repeatType: "DAY" })
-                                        setOpenPopoverKey(null)
-                                      }}
-                                    >
-                                      Daily
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      className={cn(
-                                        "h-8 w-full justify-start text-xs",
-                                        row.repeatType === "WEEK" && "bg-muted"
-                                      )}
-                                      onClick={() => {
-                                        updateRow(row.id, { repeatType: "WEEK" })
-                                        setOpenPopoverKey(null)
-                                      }}
-                                    >
-                                      Weekly (same day)
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      className={cn(
-                                        "h-8 w-full justify-start text-xs",
-                                        row.repeatType === "MONTH" && "bg-muted"
-                                      )}
-                                      onClick={() => {
-                                        updateRow(row.id, { repeatType: "MONTH" })
-                                        setOpenPopoverKey(null)
-                                      }}
-                                    >
-                                      Monthly (same day)
-                                    </Button>
+                                    {(
+                                      [
+                                        { repeatType: "DAY" as const, label: "Daily" },
+                                        { repeatType: "WEEK" as const, label: "Weekly (same day)" },
+                                        { repeatType: "MONTH" as const, label: "Monthly (same day)" },
+                                      ] as const
+                                    ).map(({ repeatType, label }) => (
+                                      <PopoverClose
+                                        key={repeatType}
+                                        render={(closeProps) => (
+                                          <Button
+                                            type="button"
+                                            {...closeProps}
+                                            variant="ghost"
+                                            className={cn(
+                                              "h-8 w-full justify-start text-xs",
+                                              row.repeatType === repeatType && "bg-muted",
+                                            )}
+                                            onClick={(event) => {
+                                              closeProps.onClick?.(event)
+                                              updateRow(row.id, { repeatType })
+                                            }}
+                                          >
+                                            {label}
+                                          </Button>
+                                        )}
+                                      />
+                                    ))}
                                   </div>
                                 </PopoverContent>
                               </Popover>
