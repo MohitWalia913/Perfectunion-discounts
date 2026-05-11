@@ -168,6 +168,17 @@ export function getScheduleRepeatType(
   return raw.trim().toUpperCase()
 }
 
+/** Local calendar month key `YYYY-MM` from Treez `updatedAt` / `updated_at`, or null if missing/invalid. */
+export function getDiscountUpdatedMonthKey(row: DiscountRow): string | null {
+  const raw = row.updatedAt ?? row.updated_at
+  if (typeof raw !== "string" || !raw.trim()) return null
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  return `${y}-${String(m).padStart(2, "0")}`
+}
+
 const DETAIL_KEYS = [
   "organizationId",
   "storeCustomizations",

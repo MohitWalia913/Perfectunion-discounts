@@ -26,6 +26,7 @@ import {
   getDiscountMethod,
   getDiscountRowId,
   getDiscountTitle,
+  getDiscountUpdatedMonthKey,
   getScheduleEndDateISO,
   getScheduleRepeatType,
   getScheduleStartDateISO,
@@ -162,6 +163,17 @@ type ScheduleScopeFilter =
   | "repeat_week"
   | "repeat_month"
 
+function rowMatchesUpdatedMonth(row: DiscountRow, monthKeyYYYYMM: string | null): boolean {
+  if (!monthKeyYYYYMM) return true
+  return getDiscountUpdatedMonthKey(row) === monthKeyYYYYMM
+}
+
+function formatUpdatedMonthLabel(yyyyMm: string): string {
+  const d = new Date(`${yyyyMm}-01T12:00:00`)
+  if (Number.isNaN(d.getTime())) return yyyyMm
+  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+}
+
 function rowMatchesScheduleScope(row: DiscountRow, f: ScheduleScopeFilter): boolean {
   const start = getScheduleStartDateISO(row)
   const end = getScheduleEndDateISO(row)
@@ -230,6 +242,8 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   const [searchQuery, setSearchQuery] = React.useState("")
 
   const [scheduleScope, setScheduleScope] = React.useState<ScheduleScopeFilter>("all")
+  /** `YYYY-MM` from last-updated timestamp, or null = any month */
+  const [updatedMonthKey, setUpdatedMonthKey] = React.useState<string | null>(null)
 
   const [editSheetOpen, setEditSheetOpen] = React.useState(false)
   const [sheetRow, setSheetRow] = React.useState<DiscountRow | null>(null)
@@ -306,6 +320,15 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     setSelectedStores(new Set(allStores))
   }, [allStores])
 
+  const updatedMonthOptions = React.useMemo(() => {
+    const keys = new Set<string>()
+    for (const r of percentRows) {
+      const k = getDiscountUpdatedMonthKey(r)
+      if (k) keys.add(k)
+    }
+    return [...keys].sort((a, b) => b.localeCompare(a))
+  }, [percentRows])
+
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; title: string } | null>(null)
   const [deleting, setDeleting] = React.useState(false)
@@ -316,7 +339,8 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
       (r) =>
         rowMatchesStatus(r, includeActive, includeInactive) &&
         rowMatchesStore(r, selectedStores, allStores) &&
-        rowMatchesScheduleScope(r, scheduleScope),
+        rowMatchesScheduleScope(r, scheduleScope) &&
+        rowMatchesUpdatedMonth(r, updatedMonthKey),
     )
     
     // Apply search filter
@@ -335,13 +359,30 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
     }
     
     return filtered
-  }, [percentRows, includeActive, includeInactive, selectedStores, allStores, searchQuery, scheduleScope])
+  }, [
+    percentRows,
+    includeActive,
+    includeInactive,
+    selectedStores,
+    allStores,
+    searchQuery,
+    scheduleScope,
+    updatedMonthKey,
+  ])
 
   const filtered = baseFiltered
 
   React.useEffect(() => {
     setPage(1)
-  }, [baseFiltered.length, searchQuery, includeActive, includeInactive, selectedStores, scheduleScope])
+  }, [
+    baseFiltered.length,
+    searchQuery,
+    includeActive,
+    includeInactive,
+    selectedStores,
+    scheduleScope,
+    updatedMonthKey,
+  ])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageClamped = Math.min(page, totalPages)
@@ -791,6 +832,60 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {updatedMonthOptions.length > 0 ? (
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                      />
+                    }
+                  >
+                    {updatedMonthKey ? (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
+                        1
+                      </span>
+                    ) : null}
+                    Last updated
+                    <ChevronDownIcon className="size-4 opacity-60" />
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
+                    <div className="border-b border-border/60 bg-muted/30 p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">
+                        Filter by last updated (month)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Uses the discount&apos;s <span className="font-medium text-foreground">updatedAt</span> from
+                        Treez (local calendar month).
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-px bg-popover p-2">
+                      <Button
+                        type="button"
+                        variant={updatedMonthKey === null ? "secondary" : "ghost"}
+                        className="h-9 w-full justify-start text-sm font-normal"
+                        onClick={() => setUpdatedMonthKey(null)}
+                      >
+                        All months
+                      </Button>
+                      {updatedMonthOptions.map((key) => (
+                        <Button
+                          key={key}
+                          type="button"
+                          variant={updatedMonthKey === key ? "secondary" : "ghost"}
+                          className="h-9 w-full justify-start text-sm font-normal"
+                          onClick={() => setUpdatedMonthKey(key)}
+                        >
+                          {formatUpdatedMonthLabel(key)}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
             </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
           <span
@@ -815,6 +910,11 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           {scheduleScope !== "all" ? (
             <span className="inline-flex max-w-[min(100%,20rem)] items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground">
               {SCHEDULE_FILTER_LABELS[scheduleScope]}
+            </span>
+          ) : null}
+          {updatedMonthKey ? (
+            <span className="inline-flex max-w-[min(100%,20rem)] items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground">
+              Updated {formatUpdatedMonthLabel(updatedMonthKey)}
             </span>
           ) : null}
         </div>
