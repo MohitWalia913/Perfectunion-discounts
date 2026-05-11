@@ -18,6 +18,7 @@ import {
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
+  DownloadIcon,
   Loader2Icon,
   PlusIcon,
   Trash2Icon,
@@ -36,6 +37,7 @@ import {
   type BulkDiscountRow,
 } from "@/lib/bulk-discount-io"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
+import { exportActivePercentDiscountsToBulkRows } from "@/lib/bulk-discount-from-treez"
 
 interface UploadResult {
   index: number
@@ -71,6 +73,7 @@ export function BulkDiscountBuilder({
   const [draftTitle, setDraftTitle] = React.useState("Untitled draft")
   const [savingDraft, setSavingDraft] = React.useState(false)
   const [loadingDraft, setLoadingDraft] = React.useState(mode === "draft")
+  const [importingLive, setImportingLive] = React.useState(false)
   const [publishSelection, setPublishSelection] = React.useState<Set<string>>(() => new Set())
 
   /** Which table popover is open — `${rowId}:${slot}` so pickers close after selection. */
@@ -294,7 +297,53 @@ export function BulkDiscountBuilder({
     }
   }
 
-  const validRowsCount = rows.filter(row => row.isValid).length
+  const handleImportLivePercentDiscounts = async () => {
+    if (
+      !window.confirm(
+        "Replace all rows in the grid with active percent discounts from Treez? Current rows will be lost unless you saved a draft.",
+      )
+    ) {
+      return
+    }
+    if (loadingData) {
+      toast.error("Wait for stores and collections to finish loading.")
+      return
+    }
+    setImportingLive(true)
+    try {
+      const res = await fetch("/api/discounts")
+      const data = await res.json()
+      if (!data.ok) throw new Error(typeof data.error === "string" ? data.error : "Failed to load discounts")
+      const treezRows: Record<string, unknown>[] = Array.isArray(data.rows) ? data.rows : []
+      const mapped = exportActivePercentDiscountsToBulkRows(treezRows, stores, collections)
+      if (mapped.length === 0) {
+        toast.message("No active percent discounts found", {
+          description: "Check the dashboard filters — only isActive=true and method PERCENT are imported.",
+        })
+        return
+      }
+      const ss: Record<string, string> = {}
+      const cs: Record<string, string> = {}
+      for (const r of mapped) {
+        ss[r.id] = ""
+        cs[r.id] = ""
+      }
+      setStoreSearch(ss)
+      setCollectionSearch(cs)
+      setRows(mapped)
+      setResults(null)
+      setPublishSelection(new Set())
+      toast.success(`Loaded ${mapped.length} discount${mapped.length === 1 ? "" : "s"}`, {
+        description: "Review rows, then Save draft or create in Treez.",
+      })
+    } catch (e) {
+      toast.error("Could not import discounts", { description: (e as Error).message })
+    } finally {
+      setImportingLive(false)
+    }
+  }
+
+  const validRowsCount = rows.filter((row) => row.isValid).length
 
   return (
     <DashboardShell
@@ -346,6 +395,25 @@ export function BulkDiscountBuilder({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => void handleImportLivePercentDiscounts()}
+                variant="outline"
+                className="gap-2"
+                disabled={loading || loadingData || importingLive || savingDraft}
+              >
+                {importingLive ? (
+                  <>
+                    <Loader2Icon className="size-4 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>
+                    <DownloadIcon className="size-4" />
+                    Import live %
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={addRow}
                 variant="outline"
