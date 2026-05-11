@@ -123,6 +123,28 @@ export function rowToEditDraft(
   }
 }
 
+/**
+ * Treez PUT `/v3/discount` OpenAPI marks these `conditions` booleans as required.
+ * GET often returns a sparse `conditions` object; merging avoids 422 on update.
+ */
+const TREEZ_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
+  customerCapEnabled: false,
+  purchaseMinimumEnabled: false,
+  customerEventEnabled: false,
+  itemLimitEnabled: false,
+  fulfillmentTypesEnabled: false,
+  customerLicenseTypeEnabled: false,
+  customerLimitEnabled: false,
+  packageAgeEnabled: false,
+}
+
+const TREEZ_MANUAL_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
+  customerCapEnabled: false,
+  purchaseMinimumEnabled: false,
+  itemLimitEnabled: false,
+  fulfillmentTypesEnabled: false,
+}
+
 /** Merge draft into a PUT payload matching existing discount-manager stripping rules */
 export function mergeRowWithEditDraft(row: DiscountRow, draft: DiscountEditDraft): Record<string, unknown> {
   const { createdAt, updatedAt, ...cleanRow } = row as DiscountRow & Record<string, unknown>
@@ -183,8 +205,11 @@ export function mergeRowWithEditDraft(row: DiscountRow, draft: DiscountEditDraft
     ...rest
   }: Record<string, unknown>) => rest
 
-  /** Preserve Treez rule payload; bulk create does not round-trip edits to these keys here. */
-  const conditionsOut: Record<string, unknown> = stripCondMeta({ ...prevConditions })
+  /** Preserve Treez rule payload; ensure required condition flags exist for PUT validation. */
+  const conditionsOut: Record<string, unknown> = {
+    ...TREEZ_CONDITIONS_PUT_DEFAULTS,
+    ...stripCondMeta({ ...prevConditions }),
+  }
 
   const updatedDiscount: Record<string, unknown> = {
     ...(cleanRow as Record<string, unknown>),
@@ -199,8 +224,10 @@ export function mergeRowWithEditDraft(row: DiscountRow, draft: DiscountEditDraft
   if (updatedDiscount.manualConditions && typeof updatedDiscount.manualConditions === "object") {
     const { createdAt: c3, updatedAt: u3, id: _m, ...cleanMan } =
       updatedDiscount.manualConditions as Record<string, unknown>
-    updatedDiscount.manualConditions =
-      Object.keys(cleanMan).length > 0 ? cleanMan : null
+    updatedDiscount.manualConditions = {
+      ...TREEZ_MANUAL_CONDITIONS_PUT_DEFAULTS,
+      ...cleanMan,
+    }
   }
 
   if (Array.isArray(updatedDiscount.collectionsRequired)) {

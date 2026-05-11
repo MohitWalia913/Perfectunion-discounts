@@ -114,6 +114,45 @@ export async function fetchServiceOrgDiscounts(
   return body
 }
 
+/** Best-effort message for failed Treez calls (422 bodies often explain validation). */
+export function formatTreezApiError(e: unknown): string {
+  const err = e as Error & { status?: number; body?: unknown }
+  const status = err.status
+  const body = err.body
+
+  const fromBody = (): string => {
+    if (body == null) return ""
+    if (typeof body === "string") return body.trim().slice(0, 900)
+    if (typeof body !== "object") return String(body)
+    const o = body as Record<string, unknown>
+    const pickRaw =
+      o.message ??
+      o.error ??
+      o.detail ??
+      (Array.isArray(o.errorMsgs) ? (o.errorMsgs as unknown[]).join("; ") : o.errorMsgs) ??
+      o.errors
+    if (typeof pickRaw === "string" && pickRaw.trim()) return pickRaw.trim()
+    if (Array.isArray(pickRaw)) {
+      return pickRaw
+        .map((x) => (typeof x === "string" ? x : JSON.stringify(x)))
+        .join("; ")
+        .slice(0, 900)
+    }
+    try {
+      const s = JSON.stringify(body)
+      return s.length > 950 ? `${s.slice(0, 950)}…` : s
+    } catch {
+      return ""
+    }
+  }
+
+  const b = fromBody()
+  if (status != null && b) return `Treez API ${status}: ${b}`
+  if (status != null) return `Treez API ${status}`
+  if (b) return b
+  return err.message || "Treez request failed"
+}
+
 export function discountsRequestUrl(env: TreezEnv, searchParams?: URLSearchParams): string {
   const disp = env.dispensary
   if (!disp) {

@@ -168,8 +168,28 @@ export function DiscountDashboardEditSheet(props: {
       }
 
       if (data.failed > 0) {
-        const errMsg = data.errors?.[0]?.error || "Update failed"
-        throw new Error(errMsg)
+        const first = data.errors?.[0] as
+          | { error?: string; details?: unknown; httpStatus?: number }
+          | undefined
+        const baseMsg = first?.error || "Update failed"
+        let detail = ""
+        if (first?.details != null && typeof first.details !== "undefined") {
+          detail =
+            typeof first.details === "string"
+              ? first.details
+              : JSON.stringify(first.details)
+        }
+        const hint =
+          first?.httpStatus === 403
+            ? " (HTTP 403 — certificate may lack discount update permission; ask Treez to enable PUT.)"
+            : first?.httpStatus === 422
+              ? " (HTTP 422 — request failed Treez validation; see details.)"
+              : ""
+        throw new Error(
+          detail
+            ? `${baseMsg}${hint} — ${detail.length > 450 ? `${detail.slice(0, 450)}…` : detail}`
+            : `${baseMsg}${hint}`,
+        )
       }
 
       toast.success("Discount updated")
