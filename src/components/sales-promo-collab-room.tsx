@@ -8,6 +8,7 @@ import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
 import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
+import { Color, TextStyle } from "@tiptap/extension-text-style"
 import TextAlign from "@tiptap/extension-text-align"
 import TaskList from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
@@ -15,6 +16,11 @@ import { TableKit } from "@tiptap/extension-table/kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Sheet,
   SheetClose,
@@ -39,6 +45,7 @@ import {
   ListOrderedIcon,
   ListTodoIcon,
   Loader2Icon,
+  PaletteIcon,
   RedoIcon,
   Share2Icon,
   StrikethroughIcon,
@@ -71,6 +78,52 @@ function normalizeDocContent(raw: unknown): JSONContent {
   return isDocJson(raw) ? raw : EMPTY_DOC
 }
 
+/** Strip Docs scaffolding and normalize tags so ProseMirror can preserve tables, lists, and marks. */
+function cleanupGoogleHtml(html: string): string {
+  let h = html
+  const bodyMatch = h.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  if (bodyMatch) h = bodyMatch[1] ?? h
+  h = h.replace(/<!--[\s\S]*?-->/g, "")
+  h = h.replace(/<style[\s\S]*?<\/style>/gi, "")
+  h = h.replace(/<meta[^>]*>/gi, "")
+  h = h.replace(/<\s*b\b(?=[\s>])/gi, "<strong")
+  h = h.replace(/<\/\s*b\s*>/gi, "</strong>")
+  h = h.replace(/<\s*i\b(?=[\s>])/gi, "<em")
+  h = h.replace(/<\/\s*i\s*>/gi, "</em>")
+  return h
+}
+
+async function uploadPromoImage(docId: string, file: File): Promise<string> {
+  const fd = new FormData()
+  fd.append("file", file)
+  const res = await fetch(`/api/sales-promo/documents/${docId}/upload-image`, {
+    method: "POST",
+    body: fd,
+    credentials: "same-origin",
+  })
+  const j = (await res.json()) as { ok?: boolean; url?: string; error?: string }
+  if (!res.ok || !j.ok || !j.url) throw new Error(j.error ?? "Upload failed")
+  return j.url
+}
+
+const HIGHLIGHT_PRESETS: { label: string; color: string }[] = [
+  { label: "Yellow", color: "#fef08a" },
+  { label: "Green", color: "#bbf7d0" },
+  { label: "Blue", color: "#bfdbfe" },
+  { label: "Pink", color: "#fbcfe8" },
+  { label: "Orange", color: "#fed7aa" },
+  { label: "Purple", color: "#e9d5ff" },
+]
+
+const TEXT_PRESETS: { label: string; color: string }[] = [
+  { label: "Default", color: "" },
+  { label: "Red", color: "#dc2626" },
+  { label: "Blue", color: "#2563eb" },
+  { label: "Green", color: "#16a34a" },
+  { label: "Purple", color: "#9333ea" },
+  { label: "Orange", color: "#ea580c" },
+]
+
 function ToolbarButton({
   title,
   active,
@@ -99,201 +152,351 @@ function ToolbarButton({
   )
 }
 
-function PromoEditorToolbar({ editor }: { editor: Editor }) {
+function PromoEditorToolbar({
+  editor,
+  docId,
+}: {
+  editor: Editor
+  docId: string
+}) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = React.useState(false)
+
+  async function insertImageFiles(files: FileList | File[]) {
+    const list = Array.from(files)
+    const images = list.filter((f) => f.type.startsWith("image/"))
+    if (!images.length) return
+    setUploading(true)
+    try {
+      for (const file of images) {
+        const url = await uploadPromoImage(docId, file)
+        editor.chain().focus().setImage({ src: url }).run()
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Image upload failed")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
-    <div className="flex max-w-full flex-1 flex-wrap items-center gap-0.5">
-      <ToolbarButton
-        title="Undo"
-        disabled={!editor.can().undo()}
-        onClick={() => editor.chain().focus().undo().run()}
-      >
-        <UndoIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Redo"
-        disabled={!editor.can().redo()}
-        onClick={() => editor.chain().focus().redo().run()}
-      >
-        <RedoIcon className="size-3.5" />
-      </ToolbarButton>
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const fl = e.target.files
+          if (fl?.length) void insertImageFiles(fl)
+          e.target.value = ""
+        }}
+      />
+      <div className="flex w-max max-w-none flex-nowrap items-center gap-0.5">
+        <ToolbarButton
+          title="Undo"
+          disabled={!editor.can().undo()}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          <UndoIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Redo"
+          disabled={!editor.can().redo()}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          <RedoIcon className="size-3.5" />
+        </ToolbarButton>
 
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
 
-      <ToolbarButton
-        title="Bold"
-        active={editor.isActive("bold")}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <BoldIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Italic"
-        active={editor.isActive("italic")}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <ItalicIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Underline"
-        active={editor.isActive("underline")}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      >
-        <UnderlineIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Strikethrough"
-        active={editor.isActive("strike")}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      >
-        <StrikethroughIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Inline code"
-        active={editor.isActive("code")}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-      >
-        <CodeIcon className="size-3.5" />
-      </ToolbarButton>
+        <ToolbarButton
+          title="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <BoldIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <ItalicIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Underline"
+          active={editor.isActive("underline")}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
+          <UnderlineIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Strikethrough"
+          active={editor.isActive("strike")}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <StrikethroughIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Inline code"
+          active={editor.isActive("code")}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+        >
+          <CodeIcon className="size-3.5" />
+        </ToolbarButton>
 
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant={editor.getAttributes("textStyle").color ? "secondary" : "ghost"}
+                size="icon-sm"
+                className="shrink-0"
+                title="Text color"
+              />
+            }
+          >
+            <PaletteIcon className="size-3.5" />
+          </PopoverTrigger>
+          <PopoverContent className="w-auto max-w-[min(100vw-1rem,280px)] p-2" align="start">
+            <p className="text-muted-foreground px-0.5 pb-1.5 text-[10px] font-semibold tracking-wide uppercase">
+              Text color
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {TEXT_PRESETS.map((p) => (
+                <Button
+                  key={p.label + p.color}
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="h-7 gap-1 px-2"
+                  onClick={() => {
+                    if (!p.color) {
+                      editor.chain().focus().unsetColor().run()
+                      return
+                    }
+                    editor.chain().focus().setColor(p.color).run()
+                  }}
+                >
+                  {p.color ? (
+                    <span
+                      className="size-3.5 rounded-sm border border-border"
+                      style={{ backgroundColor: p.color }}
+                      aria-hidden
+                    />
+                  ) : (
+                    <span className="border-border bg-background size-3.5 rounded-sm border" aria-hidden />
+                  )}
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+            <label className="text-muted-foreground mt-2 flex cursor-pointer items-center gap-2 text-xs">
+              <span className="shrink-0">Custom</span>
+              <input
+                type="color"
+                className="border-input h-8 w-full min-w-0 flex-1 cursor-pointer rounded border bg-background"
+                onInput={(e) => {
+                  const v = (e.target as HTMLInputElement).value
+                  editor.chain().focus().setColor(v).run()
+                }}
+              />
+            </label>
+          </PopoverContent>
+        </Popover>
 
-      <ToolbarButton
-        title="Heading 1"
-        active={editor.isActive("heading", { level: 1 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-      >
-        <Heading1Icon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Heading 2"
-        active={editor.isActive("heading", { level: 2 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        <Heading2Icon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Heading 3"
-        active={editor.isActive("heading", { level: 3 })}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-      >
-        <Heading3Icon className="size-3.5" />
-      </ToolbarButton>
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
 
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
+        <ToolbarButton
+          title="Heading 1"
+          active={editor.isActive("heading", { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1Icon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Heading 2"
+          active={editor.isActive("heading", { level: 2 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2Icon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Heading 3"
+          active={editor.isActive("heading", { level: 3 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          <Heading3Icon className="size-3.5" />
+        </ToolbarButton>
 
-      <ToolbarButton
-        title="Bullet list"
-        active={editor.isActive("bulletList")}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <ListIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Numbered list"
-        active={editor.isActive("orderedList")}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      >
-        <ListOrderedIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Task list"
-        active={editor.isActive("taskList")}
-        onClick={() => editor.chain().focus().toggleTaskList().run()}
-      >
-        <ListTodoIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Quote"
-        active={editor.isActive("blockquote")}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      >
-        <span className="text-xs font-semibold">“</span>
-      </ToolbarButton>
-      <ToolbarButton
-        title="Horizontal rule"
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
-      >
-        <span className="text-[10px] font-bold">HR</span>
-      </ToolbarButton>
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
 
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
+        <ToolbarButton
+          title="Bullet list"
+          active={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
+          <ListIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Numbered list"
+          active={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
+          <ListOrderedIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Task list"
+          active={editor.isActive("taskList")}
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+        >
+          <ListTodoIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Quote"
+          active={editor.isActive("blockquote")}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
+          <span className="text-xs font-semibold">“</span>
+        </ToolbarButton>
+        <ToolbarButton
+          title="Horizontal rule"
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        >
+          <span className="text-[10px] font-bold">HR</span>
+        </ToolbarButton>
 
-      <ToolbarButton
-        title="Align left"
-        active={editor.isActive({ textAlign: "left" })}
-        onClick={() => editor.chain().focus().setTextAlign("left").run()}
-      >
-        <AlignLeftIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Align center"
-        active={editor.isActive({ textAlign: "center" })}
-        onClick={() => editor.chain().focus().setTextAlign("center").run()}
-      >
-        <AlignCenterIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Align right"
-        active={editor.isActive({ textAlign: "right" })}
-        onClick={() => editor.chain().focus().setTextAlign("right").run()}
-      >
-        <AlignRightIcon className="size-3.5" />
-      </ToolbarButton>
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
 
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
+        <ToolbarButton
+          title="Align left"
+          active={editor.isActive({ textAlign: "left" })}
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        >
+          <AlignLeftIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Align center"
+          active={editor.isActive({ textAlign: "center" })}
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        >
+          <AlignCenterIcon className="size-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Align right"
+          active={editor.isActive({ textAlign: "right" })}
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        >
+          <AlignRightIcon className="size-3.5" />
+        </ToolbarButton>
 
-      <ToolbarButton
-        title="Link"
-        active={editor.isActive("link")}
-        onClick={() => {
-          const previous = editor.getAttributes("link").href as string | undefined
-          const next = window.prompt("Link URL", previous ?? "https://")
-          if (next === null) return
-          const trimmed = next.trim()
-          if (trimmed === "") {
-            editor.chain().focus().extendMarkRange("link").unsetLink().run()
-            return
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+        <ToolbarButton
+          title="Link"
+          active={editor.isActive("link")}
+          onClick={() => {
+            const previous = editor.getAttributes("link").href as string | undefined
+            const next = window.prompt("Link URL", previous ?? "https://")
+            if (next === null) return
+            const trimmed = next.trim()
+            if (trimmed === "") {
+              editor.chain().focus().extendMarkRange("link").unsetLink().run()
+              return
+            }
+            editor.chain().focus().extendMarkRange("link").setLink({ href: trimmed }).run()
+          }}
+        >
+          <Link2Icon className="size-3.5" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          title={uploading ? "Uploading image…" : "Upload image"}
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {uploading ? (
+            <Loader2Icon className="size-3.5 animate-spin" />
+          ) : (
+            <ImagePlusIcon className="size-3.5" />
+          )}
+        </ToolbarButton>
+
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant={editor.isActive("highlight") ? "secondary" : "ghost"}
+                size="icon-sm"
+                className="shrink-0"
+                title="Highlight color"
+              />
+            }
+          >
+            <HighlighterIcon className="size-3.5" />
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <p className="text-muted-foreground px-0.5 pb-1.5 text-[10px] font-semibold tracking-wide uppercase">
+              Highlight
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {HIGHLIGHT_PRESETS.map((p) => (
+                <Button
+                  key={p.color}
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  title={p.label}
+                  className="size-8 border-2 p-0"
+                  style={{ backgroundColor: p.color }}
+                  onClick={() => editor.chain().focus().toggleHighlight({ color: p.color }).run()}
+                />
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="mt-2 w-full"
+              onClick={() => editor.chain().focus().unsetHighlight().run()}
+            >
+              Remove highlight
+            </Button>
+            <label className="text-muted-foreground mt-2 flex cursor-pointer items-center gap-2 text-xs">
+              <span className="shrink-0">Custom</span>
+              <input
+                type="color"
+                className="border-input h-8 w-full min-w-0 flex-1 cursor-pointer rounded border bg-background"
+                defaultValue="#fef08a"
+                onInput={(e) => {
+                  const v = (e.target as HTMLInputElement).value
+                  editor.chain().focus().setHighlight({ color: v }).run()
+                }}
+              />
+            </label>
+          </PopoverContent>
+        </Popover>
+
+        <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+        <ToolbarButton
+          title="Insert table"
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
           }
-          editor.chain().focus().extendMarkRange("link").setLink({ href: trimmed }).run()
-        }}
-      >
-        <Link2Icon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Image"
-        onClick={() => {
-          const src = window.prompt("Image URL", "https://")
-          if (!src?.trim()) return
-          editor.chain().focus().setImage({ src: src.trim() }).run()
-        }}
-      >
-        <ImagePlusIcon className="size-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        title="Highlight"
-        active={editor.isActive("highlight", { color: "#fef08a" })}
-        onClick={() =>
-          editor.chain().focus().toggleHighlight({ color: "#fef08a" }).run()
-        }
-      >
-        <HighlighterIcon className="size-3.5" />
-      </ToolbarButton>
-
-      <Separator orientation="vertical" className="mx-0.5 h-6" />
-
-      <ToolbarButton
-        title="Insert table"
-        onClick={() =>
-          editor
-            .chain()
-            .focus()
-            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-            .run()
-        }
-      >
-        <Table2Icon className="size-3.5" />
-      </ToolbarButton>
-    </div>
+        >
+          <Table2Icon className="size-3.5" />
+        </ToolbarButton>
+      </div>
+    </>
   )
 }
 
@@ -344,6 +547,10 @@ function SalesPromoEditor({
   onSaveStatus?: (s: "idle" | "saving" | "saved" | "error") => void
 }) {
   const saveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const editorRef = React.useRef<Editor | null>(null)
+  const docIdRef = React.useRef(docId)
+  docIdRef.current = docId
+
   const [saveStatus, setSaveStatus] = React.useState<
     "idle" | "saving" | "saved" | "error"
   >("idle")
@@ -363,17 +570,60 @@ function SalesPromoEditor({
       StarterKit.configure({
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
+      TextStyle,
+      Color.configure({ types: ["textStyle"] }),
       TableKit.configure({
         table: { resizable: true },
       }),
       Placeholder.configure({ placeholder: "Start writing your promo…" }),
       Highlight.configure({ multicolor: true }),
-      Image.configure({ HTMLAttributes: { class: "rounded-md border border-border" } }),
+      Image.configure({
+        allowBase64: true,
+        HTMLAttributes: { class: "rounded-md border border-border" },
+      }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
+    editorProps: {
+      transformPastedHTML(html) {
+        return cleanupGoogleHtml(html)
+      },
+      handlePaste(_view, event) {
+        const ed = editorRef.current
+        if (!ed) return false
+        const cd = event.clipboardData
+        if (!cd) return false
+        const html = cd.getData("text/html") ?? ""
+        // Prefer HTML paste when the clipboard is rich (Docs/Word/web) so tables and inline images survive.
+        if (html.replace(/\s/g, "").length > 80) {
+          return false
+        }
+        for (const item of cd.items) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const file = item.getAsFile()
+            if (file) {
+              event.preventDefault()
+              void (async () => {
+                try {
+                  const url = await uploadPromoImage(docIdRef.current, file)
+                  ed.chain().focus().setImage({ src: url }).run()
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Could not paste image")
+                }
+              })()
+              return true
+            }
+          }
+        }
+        return false
+      },
+    },
   })
+
+  React.useEffect(() => {
+    editorRef.current = editor
+  }, [editor])
 
   React.useEffect(() => {
     if (!editor) return
@@ -424,9 +674,13 @@ function SalesPromoEditor({
 
   return (
     <div className="relative flex min-h-[min(60vh,900px)] flex-col">
-      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex flex-wrap items-center gap-1 border-b px-2 py-2 backdrop-blur sm:px-3 md:px-4">
-        <PromoEditorToolbar editor={editor} />
-        <div className="ml-auto hidden sm:block">
+      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex min-h-10 items-stretch border-b backdrop-blur">
+        <div className="min-h-10 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="flex h-full min-w-max items-center py-1 pr-1 pl-2 sm:pl-3 md:pl-4">
+            <PromoEditorToolbar editor={editor} docId={docId} />
+          </div>
+        </div>
+        <div className="bg-background/95 flex min-h-10 w-[6.25rem] shrink-0 items-center justify-end border-l border-border/60 px-2">
           <SaveStatusChip status={saveStatus} />
         </div>
       </div>
@@ -448,8 +702,9 @@ function SalesPromoEditor({
           "[&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-muted-foreground",
           "[&_.ProseMirror_img]:mx-auto [&_.ProseMirror_img]:my-4 [&_.ProseMirror_img]:max-h-[480px] [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:object-contain",
           "[&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-hidden [&_.ProseMirror_table]:rounded-lg [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border",
-          "[&_.ProseMirror_td]:min-w-[4.5rem] [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
+          "[&_.ProseMirror_td]:min-w-[3rem] [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
           "[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted/45 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold",
+          "[&_.ProseMirror_table_colgroup]:hidden",
         )}
       />
     </div>
@@ -680,7 +935,7 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
   return (
     <div className={cn("bg-muted/20 flex min-h-0 flex-1 flex-col")}>
       <header className="border-border/80 sticky top-0 z-30 shrink-0 border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-3 py-4 sm:px-5 lg:[grid-template-columns:1fr_auto] lg:items-center lg:gap-8 lg:px-8">
+        <div className="mx-auto grid w-full max-w-[1600px] gap-4 px-3 py-4 sm:px-5 lg:[grid-template-columns:1fr_auto] lg:items-center lg:gap-8 lg:px-8">
           <div className="flex min-w-0 items-start gap-3 sm:gap-4">
             <Link
               href="/dashboard/sales-promo"
@@ -742,9 +997,9 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-0 w-full max-w-[1400px] flex-1 grid-cols-1 gap-0 xl:grid-cols-[1fr_320px]">
+      <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-1 gap-0 xl:grid-cols-[1fr_320px]">
         <main className="min-h-0 overflow-y-auto px-3 py-4 sm:px-4 lg:px-6">
-          <div className="border-border/80 bg-card mx-auto w-full max-w-[800px] overflow-hidden rounded-xl border shadow-sm">
+          <div className="border-border/80 bg-card mx-auto w-full max-w-[min(100%,1200px)] overflow-hidden rounded-xl border shadow-sm">
             {loading ? (
               <div className="text-muted-foreground flex items-center gap-2 px-6 py-12 text-sm">
                 <Loader2Icon className="size-4 animate-spin" />
