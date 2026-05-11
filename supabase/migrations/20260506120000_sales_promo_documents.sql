@@ -1,4 +1,4 @@
--- Collaborative "Sales Promo" docs: metadata in Postgres, body in Liveblocks (Yjs).
+-- Sales Promo docs: metadata in Postgres; document body is stored as TipTap JSON (see later migration).
 
 create table public.sales_promo_documents (
   id uuid primary key default gen_random_uuid(),

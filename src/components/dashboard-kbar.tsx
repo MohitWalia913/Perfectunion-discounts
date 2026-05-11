@@ -126,7 +126,7 @@ function RegisterKBarActions() {
         name: "Sales Promo",
         subtitle: "Collaborative promo workspace",
         section: "Navigation",
-        keywords: "promo marketing liveblocks",
+        keywords: "promo marketing documents",
         icon: <MegaphoneIcon aria-hidden />,
         perform: () => router.push("/dashboard/sales-promo"),
       },

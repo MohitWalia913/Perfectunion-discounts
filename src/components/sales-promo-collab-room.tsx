@@ -2,42 +2,55 @@
 
 import * as React from "react"
 import Link from "next/link"
-import {
-  ClientSideSuspense,
-  LiveblocksProvider,
-  RoomProvider,
-  useOthers,
-  useSelf,
-  useSyncStatus,
-  useThreads,
-} from "@liveblocks/react/suspense"
-import {
-  AnchoredThreads,
-  FloatingComposer,
-  FloatingThreads,
-  Toolbar,
-  useIsEditorReady,
-  useLiveblocksExtension,
-} from "@liveblocks/react-tiptap"
-import "@liveblocks/react-tiptap/styles.css"
-import "@liveblocks/react-ui/styles.css"
+import type { JSONContent } from "@tiptap/core"
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
+import Highlight from "@tiptap/extension-highlight"
+import Image from "@tiptap/extension-image"
+import TextAlign from "@tiptap/extension-text-align"
+import TaskList from "@tiptap/extension-task-list"
+import TaskItem from "@tiptap/extension-task-item"
 import { TableKit } from "@tiptap/extension-table/kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetClose,
   SheetContent,
   SheetFooter,
 } from "@/components/ui/sheet"
-import { Loader2Icon, ArrowLeftIcon, Share2Icon, Table2Icon } from "lucide-react"
+import {
+  AlignCenterIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  ArrowLeftIcon,
+  BoldIcon,
+  CodeIcon,
+  Heading1Icon,
+  Heading2Icon,
+  Heading3Icon,
+  HighlighterIcon,
+  ImagePlusIcon,
+  ItalicIcon,
+  Link2Icon,
+  ListIcon,
+  ListOrderedIcon,
+  ListTodoIcon,
+  Loader2Icon,
+  RedoIcon,
+  Share2Icon,
+  StrikethroughIcon,
+  Table2Icon,
+  UnderlineIcon,
+  UndoIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 import type { ProfileRow } from "@/lib/auth/types"
-import { salesPromoRoomId } from "@/lib/sales-promo/room"
 import { cn } from "@/lib/utils"
+
+const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
 
 type ShareRow = {
   user_id: string
@@ -50,162 +63,372 @@ type ShareRow = {
   } | null
 }
 
-function initialsFromName(name: string): string {
-  const p = name.trim().split(/\s+/).filter(Boolean)
-  if (p.length >= 2) return `${p[0]!.slice(0, 1)}${p[1]!.slice(0, 1)}`.toUpperCase()
-  const one = p[0] ?? "?"
-  return one.slice(0, Math.min(2, one.length)).toUpperCase()
+function isDocJson(v: unknown): v is JSONContent {
+  return typeof v === "object" && v !== null && (v as JSONContent).type === "doc"
 }
 
-function CollaborationHud() {
-  const self = useSelf()
-  const others = useOthers()
-  const sync = useSyncStatus({ smooth: true })
+function normalizeDocContent(raw: unknown): JSONContent {
+  return isDocJson(raw) ? raw : EMPTY_DOC
+}
 
-  const badges = React.useMemo(() => {
-    const rows: Array<{ key: string; name: string; color?: string | null }> = []
-    if (self?.info?.name && typeof self.info.name === "string") {
-      const color =
-        typeof self.info.color === "string" && self.info.color ? self.info.color : null
-      rows.push({
-        key: `self:${self.connectionId}`,
-        name: self.info.name,
-        color,
-      })
-    }
-
-    for (const u of others) {
-      const name = typeof u.info?.name === "string" ? u.info.name : "Guest"
-      const color =
-        typeof u.info?.color === "string" && u.info.color ? u.info.color : null
-      rows.push({ key: `o:${u.connectionId}`, name, color })
-    }
-    return rows
-  }, [self, others])
-
-  const syncLabel =
-    sync === "synchronizing"
-      ? "Saving…"
-      : sync === "synchronized" || sync === "has-local-changes"
-        ? "Synced"
-        : "Connecting…"
-
+function ToolbarButton({
+  title,
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  title: string
+  active?: boolean
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      {badges.length ? (
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground hidden text-xs sm:inline">
-            Editing
-          </span>
-          <div className="flex items-center justify-end -space-x-2">
-            {badges.slice(0, 8).map((b) => (
-              <div
-                key={b.key}
-                title={b.name}
-                style={{ background: b.color ?? "var(--muted-foreground)" }}
-                className={cn(
-                  "flex size-8 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold text-white shadow-sm",
-                )}
-              >
-                {initialsFromName(b.name)}
-              </div>
-            ))}
-            {badges.length > 8 ? (
-              <div className="bg-muted text-muted-foreground flex size-8 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold">
-                +{badges.length - 8}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+    <Button
+      type="button"
+      variant={active ? "secondary" : "ghost"}
+      size="icon-sm"
+      className="shrink-0"
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  )
+}
 
-      <div
-        className={cn(
-          "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium",
-          sync === "synchronizing"
-            ? "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100"
-            : "border-border/60 bg-background/60 text-muted-foreground",
-        )}
+function PromoEditorToolbar({ editor }: { editor: Editor }) {
+  return (
+    <div className="flex max-w-full flex-1 flex-wrap items-center gap-0.5">
+      <ToolbarButton
+        title="Undo"
+        disabled={!editor.can().undo()}
+        onClick={() => editor.chain().focus().undo().run()}
       >
-        <span
-          className={cn(
-            "size-1.5 rounded-full",
-            sync === "synchronizing"
-              ? "bg-amber-500"
-              : sync === "synchronized" || sync === "has-local-changes"
-                ? "bg-emerald-500"
-                : "bg-muted-foreground/50",
-          )}
-          aria-hidden
-        />
-        <span className="text-foreground/80">{syncLabel}</span>
-      </div>
+        <UndoIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Redo"
+        disabled={!editor.can().redo()}
+        onClick={() => editor.chain().focus().redo().run()}
+      >
+        <RedoIcon className="size-3.5" />
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Bold"
+        active={editor.isActive("bold")}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <BoldIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Italic"
+        active={editor.isActive("italic")}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <ItalicIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Underline"
+        active={editor.isActive("underline")}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <UnderlineIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Strikethrough"
+        active={editor.isActive("strike")}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+      >
+        <StrikethroughIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Inline code"
+        active={editor.isActive("code")}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+      >
+        <CodeIcon className="size-3.5" />
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Heading 1"
+        active={editor.isActive("heading", { level: 1 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+      >
+        <Heading1Icon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Heading 2"
+        active={editor.isActive("heading", { level: 2 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <Heading2Icon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Heading 3"
+        active={editor.isActive("heading", { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+      >
+        <Heading3Icon className="size-3.5" />
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Bullet list"
+        active={editor.isActive("bulletList")}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        <ListIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Numbered list"
+        active={editor.isActive("orderedList")}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+      >
+        <ListOrderedIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Task list"
+        active={editor.isActive("taskList")}
+        onClick={() => editor.chain().focus().toggleTaskList().run()}
+      >
+        <ListTodoIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Quote"
+        active={editor.isActive("blockquote")}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+      >
+        <span className="text-xs font-semibold">“</span>
+      </ToolbarButton>
+      <ToolbarButton
+        title="Horizontal rule"
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+      >
+        <span className="text-[10px] font-bold">HR</span>
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Align left"
+        active={editor.isActive({ textAlign: "left" })}
+        onClick={() => editor.chain().focus().setTextAlign("left").run()}
+      >
+        <AlignLeftIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Align center"
+        active={editor.isActive({ textAlign: "center" })}
+        onClick={() => editor.chain().focus().setTextAlign("center").run()}
+      >
+        <AlignCenterIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Align right"
+        active={editor.isActive({ textAlign: "right" })}
+        onClick={() => editor.chain().focus().setTextAlign("right").run()}
+      >
+        <AlignRightIcon className="size-3.5" />
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Link"
+        active={editor.isActive("link")}
+        onClick={() => {
+          const previous = editor.getAttributes("link").href as string | undefined
+          const next = window.prompt("Link URL", previous ?? "https://")
+          if (next === null) return
+          const trimmed = next.trim()
+          if (trimmed === "") {
+            editor.chain().focus().extendMarkRange("link").unsetLink().run()
+            return
+          }
+          editor.chain().focus().extendMarkRange("link").setLink({ href: trimmed }).run()
+        }}
+      >
+        <Link2Icon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Image"
+        onClick={() => {
+          const src = window.prompt("Image URL", "https://")
+          if (!src?.trim()) return
+          editor.chain().focus().setImage({ src: src.trim() }).run()
+        }}
+      >
+        <ImagePlusIcon className="size-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        title="Highlight"
+        active={editor.isActive("highlight", { color: "#fef08a" })}
+        onClick={() =>
+          editor.chain().focus().toggleHighlight({ color: "#fef08a" }).run()
+        }
+      >
+        <HighlighterIcon className="size-3.5" />
+      </ToolbarButton>
+
+      <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+      <ToolbarButton
+        title="Insert table"
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .run()
+        }
+      >
+        <Table2Icon className="size-3.5" />
+      </ToolbarButton>
     </div>
   )
 }
 
-function LiveblocksThreadsUI({ editor }: { editor: Editor }) {
-  const { threads } = useThreads()
-  const list = threads ?? []
+function SaveStatusChip({
+  status,
+}: {
+  status: "idle" | "saving" | "saved" | "error"
+}) {
+  const label =
+    status === "saving" ? "Saving…" : status === "saved" ? "Saved" : status === "error" ? "Save failed" : ""
+
+  if (!label) return null
 
   return (
-    <>
-      <FloatingComposer editor={editor} className="z-[50]" />
-      <FloatingThreads editor={editor} threads={list} className="z-[50] w-[min(100vw-2rem,380px)]" />
-      <AnchoredThreads editor={editor} threads={list} className="z-[45]" />
-    </>
+    <div
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium",
+        status === "saving"
+          ? "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-100"
+          : status === "error"
+            ? "border-destructive/35 bg-destructive/10 text-destructive"
+            : "border-border/60 bg-background/60 text-muted-foreground",
+      )}
+    >
+      <span
+        className={cn(
+          "size-1.5 rounded-full",
+          status === "saving"
+            ? "bg-amber-500"
+            : status === "error"
+              ? "bg-destructive"
+              : "bg-emerald-500",
+        )}
+        aria-hidden
+      />
+      <span className="text-foreground/80">{label}</span>
+    </div>
   )
 }
 
-function SalesPromoTiptap() {
-  const liveblocks = useLiveblocksExtension({
-    comments: true,
-    mentions: false,
-  })
+function SalesPromoEditor({
+  docId,
+  initialContent,
+  onSaveStatus,
+}: {
+  docId: string
+  initialContent: JSONContent
+  onSaveStatus?: (s: "idle" | "saving" | "saved" | "error") => void
+}) {
+  const saveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [saveStatus, setSaveStatus] = React.useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle")
+
+  const relayStatus = React.useCallback(
+    (s: typeof saveStatus) => {
+      setSaveStatus(s)
+      onSaveStatus?.(s)
+    },
+    [onSaveStatus],
+  )
+
   const editor = useEditor({
     immediatelyRender: false,
+    content: initialContent,
     extensions: [
-      liveblocks,
-      StarterKit.configure({ undoRedo: false }),
+      StarterKit.configure({
+        link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
+      }),
       TableKit.configure({
         table: { resizable: true },
       }),
       Placeholder.configure({ placeholder: "Start writing your promo…" }),
+      Highlight.configure({ multicolor: true }),
+      Image.configure({ HTMLAttributes: { class: "rounded-md border border-border" } }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
     ],
   })
-  const ready = useIsEditorReady()
 
-  if (!editor || !ready) {
+  React.useEffect(() => {
+    if (!editor) return
+
+    const scheduleSave = () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      relayStatus("idle")
+      saveTimer.current = setTimeout(async () => {
+        saveTimer.current = null
+        relayStatus("saving")
+        try {
+          const res = await fetch(`/api/sales-promo/documents/${docId}`, {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: editor.getJSON() }),
+          })
+          const data = (await res.json()) as { ok?: boolean; error?: string }
+          if (!res.ok || !data.ok) {
+            relayStatus("error")
+            toast.error(data.error ?? "Could not save document")
+            return
+          }
+          relayStatus("saved")
+          window.setTimeout(() => relayStatus("idle"), 2000)
+        } catch {
+          relayStatus("error")
+          toast.error("Network error while saving")
+        }
+      }, 1100)
+    }
+
+    editor.on("update", scheduleSave)
+    return () => {
+      editor.off("update", scheduleSave)
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [docId, editor, relayStatus])
+
+  if (!editor) {
     return (
       <div className="text-muted-foreground flex min-h-[min(60vh,900px)] items-center justify-center gap-2 px-6 py-16 text-sm">
         <Loader2Icon className="size-4 animate-spin" />
-        Connecting editor…
+        Preparing editor…
       </div>
     )
   }
 
   return (
     <div className="relative flex min-h-[min(60vh,900px)] flex-col">
-      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur md:px-4">
-        <Toolbar
-          editor={editor}
-          after={
-            <>
-              <Toolbar.Separator />
-              <Toolbar.Button
-                name="Insert table"
-                icon={<Table2Icon className="size-4" />}
-                onClick={() =>
-                  editor
-                    .chain()
-                    .focus()
-                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                    .run()
-                }
-              />
-            </>
-          }
-        />
+      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex flex-wrap items-center gap-1 border-b px-2 py-2 backdrop-blur sm:px-3 md:px-4">
+        <PromoEditorToolbar editor={editor} />
+        <div className="ml-auto hidden sm:block">
+          <SaveStatusChip status={saveStatus} />
+        </div>
       </div>
       <EditorContent
         editor={editor}
@@ -218,14 +441,17 @@ function SalesPromoTiptap() {
           "[&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-semibold",
           "[&_.ProseMirror_p]:my-2",
           "[&_.ProseMirror_ul]:my-3 [&_.ProseMirror_ol]:my-3",
+          "[&_.ProseMirror_ul[data-type=taskList]]:list-none [&_.ProseMirror_ul[data-type=taskList]]:pl-0",
+          "[&_.ProseMirror_li[data-type=taskItem]]:flex [&_.ProseMirror_li[data-type=taskItem]]:items-start [&_.ProseMirror_li[data-type=taskItem]]:gap-2",
+          "[&_.ProseMirror_li[data-type=taskItem]>label]:flex [&_.ProseMirror_li[data-type=taskItem]>label]:items-start [&_.ProseMirror_li[data-type=taskItem]>label]:gap-2 [&_.ProseMirror_li[data-type=taskItem]>label]:pt-0.5",
+          "[&_.ProseMirror_li[data-type=taskItem]>div]:min-w-0 [&_.ProseMirror_li[data-type=taskItem]>div]:flex-1",
           "[&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-muted-foreground",
-          // Tables
+          "[&_.ProseMirror_img]:mx-auto [&_.ProseMirror_img]:my-4 [&_.ProseMirror_img]:max-h-[480px] [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:object-contain",
           "[&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-hidden [&_.ProseMirror_table]:rounded-lg [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border",
           "[&_.ProseMirror_td]:min-w-[4.5rem] [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
           "[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted/45 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold",
         )}
       />
-      <LiveblocksThreadsUI editor={editor} />
     </div>
   )
 }
@@ -325,30 +551,18 @@ function SharingPanel({
   )
 }
 
-function PromoConnectingSkeleton() {
-  return (
-    <div className="bg-muted/20 flex min-h-0 flex-1 flex-col">
-      <div className="border-border bg-background/90 h-14 border-b backdrop-blur" />
-      <div className="flex flex-1 items-start justify-center px-4 py-8">
-        <div className="border-border mt-10 w-full max-w-[800px] rounded-xl border bg-card px-10 py-12 shadow-sm">
-          <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2Icon className="size-4 animate-spin" />
-            Connecting to collaboration…
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function PromoDocWorkspace({ docId }: { docId: string }) {
   const [title, setTitle] = React.useState("")
+  const [docContent, setDocContent] = React.useState<JSONContent>(EMPTY_DOC)
   const [canManage, setCanManage] = React.useState(false)
   const [shares, setShares] = React.useState<ShareRow[]>([])
   const [users, setUsers] = React.useState<ProfileRow[]>([])
   const [sharePick, setSharePick] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [mobileShareOpen, setMobileShareOpen] = React.useState(false)
+  const [headerSave, setHeaderSave] = React.useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle")
 
   React.useEffect(() => {
     let cancelled = false
@@ -362,7 +576,7 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
         const data = (await res.json()) as {
           ok?: boolean
           error?: string
-          document?: { title: string }
+          document?: { title: string; content?: unknown }
           canManage?: boolean
           shares?: ShareRow[]
         }
@@ -371,6 +585,7 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
           return
         }
         setTitle(data.document.title)
+        setDocContent(normalizeDocContent(data.document.content))
         setCanManage(!!data.canManage)
         setShares(Array.isArray(data.shares) ? data.shares : [])
         if (data.canManage) {
@@ -518,7 +733,11 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
               </div>
             ) : null}
 
-            <CollaborationHud />
+            <div className="flex items-center gap-2">
+              <div className="sm:hidden">
+                <SaveStatusChip status={headerSave} />
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -532,7 +751,11 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
                 Loading…
               </div>
             ) : (
-              <SalesPromoTiptap />
+              <SalesPromoEditor
+                docId={docId}
+                initialContent={docContent}
+                onSaveStatus={(s) => setHeaderSave(s)}
+              />
             )}
           </div>
         </main>
@@ -548,14 +771,5 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
 }
 
 export function SalesPromoCollabRoom({ docId }: { docId: string }) {
-  const roomId = salesPromoRoomId(docId)
-  return (
-    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-      <RoomProvider id={roomId}>
-        <ClientSideSuspense fallback={<PromoConnectingSkeleton />}>
-          <PromoDocWorkspace docId={docId} />
-        </ClientSideSuspense>
-      </RoomProvider>
-    </LiveblocksProvider>
-  )
+  return <PromoDocWorkspace docId={docId} />
 }

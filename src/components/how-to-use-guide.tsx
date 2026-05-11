@@ -368,8 +368,8 @@ export function HowToUseGuide() {
                     Sales Promo documents
                   </h2>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Live TipTap editors backed by Liveblocks: real-time typing, threaded comments,
-                    collaborator presence, and optional sharing controls for admins.
+                    Rich TipTap documents with tables, images, highlighting, and sharing controls for
+                    admins. Edits save automatically to the database (no separate collaboration service).
                   </p>
                 </div>
                 <GuideLink href="/dashboard/sales-promo">Open Sales Promo</GuideLink>
@@ -380,7 +380,7 @@ export function HowToUseGuide() {
                   <strong>Master admins and admins</strong> can create documents, manage the share list,
                   and delete promo docs they control.{" "}
                   <strong>Managers</strong> only see docs that were explicitly shared — the list stays
-                  empty until an admin invites them into a room.
+                  empty until an admin shares a document with them.
                 </p>
               </Callout>
             </div>
@@ -398,24 +398,25 @@ export function HowToUseGuide() {
                   <li className="ps-2 text-muted-foreground">
                     <span className="text-foreground">Create a document</span> via{" "}
                     <strong className="text-foreground">New promo doc</strong> (admins/master admins).
-                    Optionally name it in the dialog; omitting the title still provisions a workspace and
-                    opens the collaborative editor route for you.
+                    Optionally name it in the dialog; omitting the title still creates the document and
+                    opens the editor for you.
                   </li>
                   <li className="ps-2 text-muted-foreground">
-                    <span className="text-foreground">Collaborate:</span> the document view syncs edits,
-                    shows who is editing, and exposes floating comment threads plus rich text/table tools when
-                    you need structured promo scripting.
+                    <span className="text-foreground">Edit:</span> the document view offers a full rich
+                    text toolbar (headings, lists, links, images, tables, highlight, alignment) and saves
+                    your work automatically after you pause typing.
                   </li>
                   <li className="ps-2 text-muted-foreground">
                     <span className="text-foreground">Share with teammates:</span> use the Share affordance.
                     Desktop panels and the mobile Share sheet pull selectable teammates from{" "}
                     <code className="rounded-md bg-muted px-1 py-0.5 text-xs">/api/users</code>,
-                    enqueue selections, remove prior shares when necessary, then confirm success to unlock
-                    the room for recipients.
+                    enqueue selections, remove prior shares when necessary, then confirm success so
+                    recipients can open the doc.
                   </li>
                   <li className="ps-2 text-muted-foreground">
                     <span className="text-foreground">Navigate back anytime</span> through the breadcrumbs
-                    or list entry — rooms resolve by document id ({` /dashboard/sales-promo/[id] `}).{" "}
+                    or list entry — each document opens at{" "}
+                    <code className="rounded-md bg-muted px-1 py-0.5 text-xs">/dashboard/sales-promo/[id]</code>.{" "}
                   </li>
                   <li className="ps-2 text-muted-foreground">
                     <span className="text-foreground">Delete safely:</span> admins may remove stale promos.

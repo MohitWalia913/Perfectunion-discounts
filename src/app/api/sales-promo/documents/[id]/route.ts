@@ -37,6 +37,7 @@ export async function GET(_request: Request, ctx: RouteCtx) {
       `
       id,
       title,
+      content,
       created_by,
       created_at,
       updated_at,
@@ -112,18 +113,44 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 })
   }
 
-  let body: { title?: unknown }
+  let body: { title?: unknown; content?: unknown }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 })
   }
 
-  const raw = typeof body.title === "string" ? body.title.trim() : ""
-  if (!raw) {
-    return NextResponse.json({ ok: false, error: "title is required" }, { status: 400 })
+  const hasTitle = Object.prototype.hasOwnProperty.call(body, "title")
+  const hasContent = Object.prototype.hasOwnProperty.call(body, "content")
+  if (!hasTitle && !hasContent) {
+    return NextResponse.json(
+      { ok: false, error: "Provide title and/or content" },
+      { status: 400 },
+    )
   }
-  const title = raw.slice(0, 200)
+
+  let title: string | undefined
+  if (hasTitle) {
+    if (typeof body.title !== "string" || !body.title.trim()) {
+      return NextResponse.json({ ok: false, error: "title must be non-empty" }, { status: 400 })
+    }
+    title = body.title.trim().slice(0, 200)
+  }
+
+  let content: unknown | undefined
+  if (hasContent) {
+    if (!body.content || typeof body.content !== "object") {
+      return NextResponse.json({ ok: false, error: "content must be a JSON object" }, { status: 400 })
+    }
+    const c = body.content as { type?: unknown }
+    if (c.type !== "doc") {
+      return NextResponse.json(
+        { ok: false, error: "content must be a TipTap doc (type: doc)" },
+        { status: 400 },
+      )
+    }
+    content = body.content
+  }
 
   let admin
   try {
@@ -139,14 +166,17 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
 
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  if (title !== undefined) patch.title = title
+  if (content !== undefined) patch.content = content
+
   const { data, error } = await admin
     .from("sales_promo_documents")
-    .update({
-      title,
-      updated_at: new Date().toISOString(),
-    })
+    .update(patch)
     .eq("id", documentId)
-    .select("id,title,created_by,created_at,updated_at")
+    .select("id,title,content,created_by,created_at,updated_at")
     .maybeSingle()
 
   if (error) {

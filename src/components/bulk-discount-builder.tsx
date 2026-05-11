@@ -506,7 +506,7 @@ export function BulkDiscountBuilder({
                   <div className="flex flex-wrap items-end gap-2 border-border lg:border-l lg:pl-6">
                     <div className="flex flex-col gap-1">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Auto-publish (UTC, all unpublished rows)
+                        Auto-publish
                       </span>
                       <Input
                         type="date"
@@ -660,8 +660,7 @@ export function BulkDiscountBuilder({
                             <Tooltip>
                               <TooltipTrigger
                                 render={
-                                  <div className="flex flex-col items-center gap-1">
-                                    <span className="leading-none">Pub</span>
+                                  <div className="flex items-center justify-center py-0.5">
                                     <Checkbox
                                       checked={allPageEligibleSelected}
                                       disabled={eligiblePublishIdsOnPage.length === 0}
