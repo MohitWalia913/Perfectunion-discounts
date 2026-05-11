@@ -349,6 +349,16 @@ export async function updateServiceDiscount(
   const url = `${base}/service/discount/v3/discount`
   const auth = buildTreezAuthorizationHeader(url, env)
 
+  const discount: Record<string, unknown> | null = Array.isArray(payload)
+    ? payload.length === 1 && payload[0] && typeof payload[0] === "object"
+      ? payload[0]
+      : null
+    : payload
+
+  if (!discount) {
+    throw new Error("updateServiceDiscount expects exactly one discount object (Treez PUT body is an object, not an array)")
+  }
+
   const res = await fetch(url, {
     method: "PUT",
     headers: {
@@ -357,7 +367,7 @@ export async function updateServiceDiscount(
       "Content-Type": "application/json",
       "Accept-Encoding": "gzip, br",
     },
-    body: JSON.stringify(Array.isArray(payload) ? payload : [payload]),
+    body: JSON.stringify(discount),
     cache: "no-store",
   })
 
