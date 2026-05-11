@@ -5,7 +5,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  BookOpenIcon,
   CirclePlusIcon,
   FileStackIcon,
   HelpCircleIcon,
@@ -43,7 +42,6 @@ const MORE_NAV = [
 ] as const
 
 const HELP_NAV = [
-  { href: "/dashboard/how-to-use", label: "How to use", icon: BookOpenIcon },
   { href: "/dashboard/help", label: "Help", icon: HelpCircleIcon },
 ] as const
 
