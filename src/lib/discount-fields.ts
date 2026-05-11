@@ -168,12 +168,53 @@ export function getScheduleRepeatType(
   return raw.trim().toUpperCase()
 }
 
-/** Local calendar month key `YYYY-MM` from Treez `updatedAt` / `updated_at`, or null if missing/invalid. */
-export function getDiscountUpdatedMonthKey(row: DiscountRow): string | null {
-  const raw = row.updatedAt ?? row.updated_at
+/** Local calendar month key `YYYY-MM` from an ISO timestamp string, or null if missing/invalid. */
+export function getMonthKeyFromTimestampString(raw: unknown): string | null {
   if (typeof raw !== "string" || !raw.trim()) return null
   const d = new Date(raw)
   if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  return `${y}-${String(m).padStart(2, "0")}`
+}
+
+/** Discount-level last update month from Treez `updatedAt` / `updated_at`. */
+export function getDiscountUpdatedMonthKey(row: DiscountRow): string | null {
+  return getMonthKeyFromTimestampString(row.updatedAt ?? row.updated_at)
+}
+
+/**
+ * Month key for "last updated" filters: when specific stores are selected, uses the latest
+ * `storeCustomizations[].updatedAt` among those locations; otherwise the discount row's `updatedAt`.
+ */
+export function getDiscountUpdatedMonthKeyForStoreFilter(
+  row: DiscountRow,
+  selectedStores: Set<string>,
+  allStores: string[],
+): string | null {
+  const allStoresSelected =
+    allStores.length === 0 ||
+    (selectedStores.size === allStores.length && allStores.every((s) => selectedStores.has(s)))
+
+  if (allStoresSelected) return getDiscountUpdatedMonthKey(row)
+
+  const sc = row.storeCustomizations
+  if (!Array.isArray(sc)) return getDiscountUpdatedMonthKey(row)
+
+  let bestTs = -Infinity
+  for (const e of sc) {
+    if (!e || typeof e !== "object") continue
+    const name = String((e as { entityName?: string }).entityName ?? "").trim()
+    if (!name || !selectedStores.has(name)) continue
+    const raw = (e as { updatedAt?: unknown; updated_at?: unknown }).updatedAt ?? (e as { updated_at?: unknown }).updated_at
+    if (typeof raw !== "string" || !raw.trim()) continue
+    const t = new Date(raw).getTime()
+    if (!Number.isNaN(t) && t > bestTs) bestTs = t
+  }
+
+  if (bestTs === -Infinity) return getDiscountUpdatedMonthKey(row)
+
+  const d = new Date(bestTs)
   const y = d.getFullYear()
   const m = d.getMonth() + 1
   return `${y}-${String(m).padStart(2, "0")}`

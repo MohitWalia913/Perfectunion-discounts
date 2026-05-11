@@ -26,7 +26,7 @@ import {
   getDiscountMethod,
   getDiscountRowId,
   getDiscountTitle,
-  getDiscountUpdatedMonthKey,
+  getDiscountUpdatedMonthKeyForStoreFilter,
   getScheduleEndDateISO,
   getScheduleRepeatType,
   getScheduleStartDateISO,
@@ -163,9 +163,14 @@ type ScheduleScopeFilter =
   | "repeat_week"
   | "repeat_month"
 
-function rowMatchesUpdatedMonth(row: DiscountRow, monthKeyYYYYMM: string | null): boolean {
+function rowMatchesUpdatedMonth(
+  row: DiscountRow,
+  monthKeyYYYYMM: string | null,
+  selectedStores: Set<string>,
+  allStores: string[],
+): boolean {
   if (!monthKeyYYYYMM) return true
-  return getDiscountUpdatedMonthKey(row) === monthKeyYYYYMM
+  return getDiscountUpdatedMonthKeyForStoreFilter(row, selectedStores, allStores) === monthKeyYYYYMM
 }
 
 function formatUpdatedMonthLabel(yyyyMm: string): string {
@@ -323,11 +328,16 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   const updatedMonthOptions = React.useMemo(() => {
     const keys = new Set<string>()
     for (const r of percentRows) {
-      const k = getDiscountUpdatedMonthKey(r)
+      const k = getDiscountUpdatedMonthKeyForStoreFilter(r, selectedStores, allStores)
       if (k) keys.add(k)
     }
     return [...keys].sort((a, b) => b.localeCompare(a))
-  }, [percentRows])
+  }, [percentRows, selectedStores, allStores])
+
+  React.useEffect(() => {
+    if (!updatedMonthKey) return
+    if (!updatedMonthOptions.includes(updatedMonthKey)) setUpdatedMonthKey(null)
+  }, [updatedMonthKey, updatedMonthOptions])
 
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; title: string } | null>(null)
@@ -340,7 +350,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
         rowMatchesStatus(r, includeActive, includeInactive) &&
         rowMatchesStore(r, selectedStores, allStores) &&
         rowMatchesScheduleScope(r, scheduleScope) &&
-        rowMatchesUpdatedMonth(r, updatedMonthKey),
+        rowMatchesUpdatedMonth(r, updatedMonthKey, selectedStores, allStores),
     )
     
     // Apply search filter
@@ -858,8 +868,11 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                         Filter by last updated (month)
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Uses the discount&apos;s <span className="font-medium text-foreground">updatedAt</span> from
-                        Treez (local calendar month).
+                        <span className="font-medium text-foreground">All stores:</span> discount-level{" "}
+                        <span className="font-medium text-foreground">updatedAt</span>.{" "}
+                        <span className="font-medium text-foreground">Specific stores:</span> latest{" "}
+                        <span className="font-medium text-foreground">storeCustomizations[].updatedAt</span> among
+                        selected locations (local month).
                       </p>
                     </div>
                     <div className="flex flex-col gap-px bg-popover p-2">
