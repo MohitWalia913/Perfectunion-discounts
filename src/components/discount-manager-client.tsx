@@ -41,6 +41,9 @@ import { toast } from "sonner"
 
 const PAGE_SIZE = 12
 
+/** Temporarily hidden — set to `true` to show the month filter again. */
+const SHOW_LAST_UPDATED_MONTH_FILTER = false
+
 function StoresCollectionsCell({ row }: { row: DiscountRow }) {
   const stores = getStoreNamesFromRow(row)
   const cols = getProductCollectionDisplayLines(row)
@@ -843,7 +846,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                 </PopoverContent>
               </Popover>
 
-              {updatedMonthOptions.length > 0 ? (
+              {SHOW_LAST_UPDATED_MONTH_FILTER && updatedMonthOptions.length > 0 ? (
                 <Popover>
                   <PopoverTrigger
                     render={
@@ -925,7 +928,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
               {SCHEDULE_FILTER_LABELS[scheduleScope]}
             </span>
           ) : null}
-          {updatedMonthKey ? (
+          {SHOW_LAST_UPDATED_MONTH_FILTER && updatedMonthKey ? (
             <span className="inline-flex max-w-[min(100%,20rem)] items-center rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-foreground">
               Updated {formatUpdatedMonthLabel(updatedMonthKey)}
             </span>
