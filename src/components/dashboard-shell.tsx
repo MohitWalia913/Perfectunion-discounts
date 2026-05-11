@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   BookOpenIcon,
   CirclePlusIcon,
+  FilePenLineIcon,
   FileStackIcon,
   HelpCircleIcon,
   LayoutGridIcon,
@@ -58,6 +59,11 @@ const SIDEBAR_NAV = [
     href: "/dashboard/discounts/drafts",
     label: "Bulk drafts",
     icon: FileStackIcon,
+  },
+  {
+    href: "/dashboard/discounts/edit-drafts",
+    label: "Draft edits",
+    icon: FilePenLineIcon,
   },
 ] as const
 
@@ -153,7 +159,9 @@ export function DashboardShell({
     pathname === "/dashboard/discounts/bulk-upload" ||
     pathname.startsWith("/dashboard/discounts/bulk-upload/") ||
     pathname === "/dashboard/discounts/drafts" ||
-    pathname.startsWith("/dashboard/discounts/drafts/")
+    pathname.startsWith("/dashboard/discounts/drafts/") ||
+    pathname === "/dashboard/discounts/edit-drafts" ||
+    pathname.startsWith("/dashboard/discounts/edit-drafts/")
 
   const [open, setOpen] = React.useState(!collapseForBulk)
 
