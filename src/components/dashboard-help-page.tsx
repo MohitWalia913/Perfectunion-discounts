@@ -142,7 +142,6 @@ export function DashboardHelpPage() {
               "Rough time (and timezone) when it happened.",
               "Which page or menu you used — a screenshot helps.",
               "Your account email (never send passwords).",
-              "For Treez issues: which store name or ID was selected.",
             ].map((t) => (
               <li
                 key={t}
