@@ -39,6 +39,8 @@ import {
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import { exportActivePercentDiscountsToBulkRows } from "@/lib/bulk-discount-from-treez"
 
+const TABLE_PAGE_SIZE = 10
+
 interface UploadResult {
   index: number
   success: boolean
@@ -75,6 +77,8 @@ export function BulkDiscountBuilder({
   const [loadingDraft, setLoadingDraft] = React.useState(mode === "draft")
   const [importingLive, setImportingLive] = React.useState(false)
   const [publishSelection, setPublishSelection] = React.useState<Set<string>>(() => new Set())
+  const [tablePage, setTablePage] = React.useState(1)
+  const [globalAutoPublishDate, setGlobalAutoPublishDate] = React.useState("")
 
   /** Which table popover is open — `${rowId}:${slot}` so pickers close after selection. */
   const [openPopoverKey, setOpenPopoverKey] = React.useState<string | null>(null)
@@ -102,7 +106,18 @@ export function BulkDiscountBuilder({
         if (cancelled) return
         const d = data.draft as { title?: string; rows?: unknown }
         if (typeof d.title === "string") setDraftTitle(d.title)
-        setRows(deserializeBulkRows(d.rows))
+        const loaded = deserializeBulkRows(d.rows)
+        setRows(loaded)
+        const unpublished = loaded.filter((r) => !r.publishedAt)
+        const scheduleDates = [
+          ...new Set(
+            unpublished
+              .map((r) => r.scheduledPublishDate)
+              .filter((x): x is string => typeof x === "string" && x.length > 0),
+          ),
+        ]
+        if (scheduleDates.length === 1) setGlobalAutoPublishDate(scheduleDates[0])
+        else setGlobalAutoPublishDate("")
       } catch (e) {
         toast.error("Could not load draft", { description: (e as Error).message })
       } finally {
@@ -163,17 +178,69 @@ export function BulkDiscountBuilder({
 
   const addRow = () => {
     const nr = defaultEmptyRow()
-    setRows([...rows, nr])
+    setRows((prev) => {
+      const next = [...prev, nr]
+      setTablePage(Math.max(1, Math.ceil(next.length / TABLE_PAGE_SIZE)))
+      return next
+    })
     setStoreSearch({ ...storeSearch, [nr.id]: "" })
     setCollectionSearch({ ...collectionSearch, [nr.id]: "" })
   }
+
+  const totalTablePages = Math.max(1, Math.ceil(rows.length / TABLE_PAGE_SIZE))
+
+  React.useEffect(() => {
+    setTablePage((p) => Math.min(p, totalTablePages))
+  }, [totalTablePages])
+
+  const paginatedRows = React.useMemo(() => {
+    const start = (tablePage - 1) * TABLE_PAGE_SIZE
+    return rows.slice(start, start + TABLE_PAGE_SIZE)
+  }, [rows, tablePage])
+
+  const applyGlobalAutoPublish = () => {
+    if (!globalAutoPublishDate) {
+      toast.error("Choose an auto-publish date first")
+      return
+    }
+    setRows((prev) =>
+      prev.map((row) =>
+        row.publishedAt
+          ? row
+          : recomputeRowMeta({ ...row, scheduledPublishDate: globalAutoPublishDate }),
+      ),
+    )
+    toast.success("Auto-publish date applied to all unpublished rows")
+  }
+
+  const clearGlobalAutoPublish = () => {
+    setGlobalAutoPublishDate("")
+    setRows((prev) =>
+      prev.map((row) =>
+        row.publishedAt
+          ? row
+          : recomputeRowMeta({ ...row, scheduledPublishDate: null }),
+      ),
+    )
+    toast.message("Cleared auto-publish for unpublished rows")
+  }
+
+  const unpublishedRowCount = React.useMemo(
+    () => rows.filter((r) => !r.publishedAt).length,
+    [rows],
+  )
 
   const removeRow = (id: string) => {
     if (rows.length === 1) {
       toast.error("You must have at least one row")
       return
     }
-    setRows(rows.filter(row => row.id !== id))
+    setPublishSelection((prev) => {
+      const n = new Set(prev)
+      n.delete(id)
+      return n
+    })
+    setRows((prev) => prev.filter((row) => row.id !== id))
   }
 
   const handleSaveDraft = async () => {
@@ -224,7 +291,13 @@ export function BulkDiscountBuilder({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Publish failed")
-      toast.success(`Published ${data.published ?? 0} discount(s)`)
+      const published = data.published ?? 0
+      if (data.draftRemoved) {
+        toast.success(`Published ${published} discount(s). Draft removed — all rows are live.`)
+        router.push("/dashboard/discounts/drafts")
+        return
+      }
+      toast.success(`Published ${published} discount(s)`)
       setPublishSelection(new Set())
       const reload = await fetch(`/api/discount-drafts/${draftId}`)
       const d2 = await reload.json()
@@ -331,6 +404,7 @@ export function BulkDiscountBuilder({
       setStoreSearch(ss)
       setCollectionSearch(cs)
       setRows(mapped)
+      setTablePage(1)
       setResults(null)
       setPublishSelection(new Set())
       toast.success(`Loaded ${mapped.length} discount${mapped.length === 1 ? "" : "s"}`, {
@@ -344,6 +418,34 @@ export function BulkDiscountBuilder({
   }
 
   const validRowsCount = rows.filter((row) => row.isValid).length
+
+  const eligiblePublishIdsOnPage = React.useMemo(
+    () => paginatedRows.filter((r) => !r.publishedAt).map((r) => r.id),
+    [paginatedRows],
+  )
+
+  const allPageEligibleSelected =
+    eligiblePublishIdsOnPage.length > 0 &&
+    eligiblePublishIdsOnPage.every((id) => publishSelection.has(id))
+
+  const toggleSelectPageForPublish = (select: boolean) => {
+    setPublishSelection((prev) => {
+      const next = new Set(prev)
+      if (select) {
+        for (const id of eligiblePublishIdsOnPage) next.add(id)
+      } else {
+        for (const id of eligiblePublishIdsOnPage) next.delete(id)
+      }
+      return next
+    })
+  }
+
+  const selectAllUnpublishedForPublish = () => {
+    setPublishSelection(new Set(rows.filter((r) => !r.publishedAt).map((r) => r.id)))
+  }
+
+  const tableRangeStart = rows.length === 0 ? 0 : (tablePage - 1) * TABLE_PAGE_SIZE + 1
+  const tableRangeEnd = Math.min(tablePage * TABLE_PAGE_SIZE, rows.length)
 
   return (
     <DashboardShell
@@ -374,32 +476,68 @@ export function BulkDiscountBuilder({
       }
     >
       <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 flex flex-col gap-2">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
+            <div className="min-w-0 flex flex-1 flex-col gap-3">
               <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
                 {mode === "draft" ? "Draft bulk discounts" : "Bulk Create Discounts"}
               </h1>
-              <p className="text-sm text-muted-foreground">
-                {mode === "draft"
-                  ? "Save your grid, publish selected rows to Treez, or pick an auto-publish date (UTC). Use a daily cron calling /api/cron/publish-bulk-drafts with CRON_SECRET."
-                  : `Add multiple discounts at once. ${validRowsCount > 0 ? `${validRowsCount} valid row${validRowsCount > 1 ? "s" : ""} ready to create.` : ""}`}
-              </p>
-              <div className="flex max-w-md flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                <span className="text-xs font-medium text-muted-foreground shrink-0">Draft name</span>
-                <Input
-                  value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
-                  className="h-9 text-sm"
-                  placeholder="Untitled draft"
-                />
+              {mode === "create" ? (
+                <p className="text-sm text-muted-foreground">
+                  {`Add multiple discounts at once. ${validRowsCount > 0 ? `${validRowsCount} valid row${validRowsCount > 1 ? "s" : ""} ready to create.` : ""}`}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+                <div className="flex min-w-[200px] max-w-md flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="text-xs font-medium text-muted-foreground shrink-0">Draft name</span>
+                  <Input
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    className="h-9 text-sm"
+                    placeholder="Untitled draft"
+                  />
+                </div>
+                {mode === "draft" ? (
+                  <div className="flex flex-wrap items-end gap-2 border-border lg:border-l lg:pl-6">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Auto-publish (UTC, all unpublished rows)
+                      </span>
+                      <Input
+                        type="date"
+                        value={globalAutoPublishDate}
+                        onChange={(e) => setGlobalAutoPublishDate(e.target.value)}
+                        className="h-9 w-[160px] text-sm"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 gap-2"
+                      onClick={applyGlobalAutoPublish}
+                      disabled={loading || loadingData || !globalAutoPublishDate}
+                    >
+                      <CalendarIcon className="size-4" />
+                      Apply to draft
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 text-muted-foreground"
+                      onClick={clearGlobalAutoPublish}
+                      disabled={loading || loadingData}
+                    >
+                      Clear schedule
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 xl:pt-1">
               <Button
                 type="button"
                 onClick={() => void handleImportLivePercentDiscounts()}
                 variant="outline"
-                className="gap-2"
+                className="h-9 gap-2"
                 disabled={loading || loadingData || importingLive || savingDraft}
               >
                 {importingLive ? (
@@ -417,7 +555,7 @@ export function BulkDiscountBuilder({
               <Button
                 onClick={addRow}
                 variant="outline"
-                className="gap-2"
+                className="h-9 gap-2"
                 disabled={loading || loadingData}
               >
                 <PlusIcon className="size-4" />
@@ -426,7 +564,7 @@ export function BulkDiscountBuilder({
               <Button
                 onClick={() => void handleSaveDraft()}
                 variant="outline"
-                className="gap-2 border-dashed"
+                className="h-9 gap-2 border-dashed"
                 disabled={savingDraft || loadingData}
               >
                 {savingDraft ? (
@@ -442,7 +580,7 @@ export function BulkDiscountBuilder({
                 <Button
                   type="button"
                   onClick={() => void handlePublishSelected()}
-                  className="gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
+                  className="h-9 gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
                   disabled={loading || loadingData || publishSelection.size === 0}
                 >
                   {loading ? (
@@ -457,7 +595,7 @@ export function BulkDiscountBuilder({
                 <Button
                   onClick={() => void handleBulkCreate()}
                   disabled={loading || validRowsCount === 0 || loadingData}
-                  className="gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white"
+                  className="h-9 gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white"
                 >
                   {loading ? (
                     <>
@@ -498,11 +636,16 @@ export function BulkDiscountBuilder({
                     <tr>
                       {mode === "draft" ? (
                         <>
-                          <th className="px-2 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-10">
-                            Pub
-                          </th>
-                          <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[140px]">
-                            Auto-publish
+                          <th className="px-2 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-12">
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="leading-none">Pub</span>
+                              <Checkbox
+                                checked={allPageEligibleSelected}
+                                disabled={eligiblePublishIdsOnPage.length === 0}
+                                onCheckedChange={(c) => toggleSelectPageForPublish(c === true)}
+                                aria-label="Select all unpublished rows on this page for publish"
+                              />
+                            </div>
                           </th>
                           <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">
                             Status
@@ -539,7 +682,7 @@ export function BulkDiscountBuilder({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {rows.map((row) => (
+                    {paginatedRows.map((row) => (
                       <tr key={row.id} className="hover:bg-muted/30 transition-colors">
                         {mode === "draft" ? (
                           <>
@@ -556,19 +699,6 @@ export function BulkDiscountBuilder({
                                   })
                                 }}
                                 aria-label="Select for publish"
-                              />
-                            </td>
-                            <td className="px-2 py-2 align-middle">
-                              <Input
-                                type="date"
-                                className="h-8 text-xs"
-                                disabled={!!row.publishedAt}
-                                value={row.scheduledPublishDate ?? ""}
-                                onChange={(e) =>
-                                  updateRow(row.id, {
-                                    scheduledPublishDate: e.target.value ? e.target.value : null,
-                                  })
-                                }
                               />
                             </td>
                             <td className="px-2 py-2 align-middle text-xs">
@@ -925,20 +1055,79 @@ export function BulkDiscountBuilder({
                 </table>
               </div>
               
-              <div className="border-t border-border bg-muted/30 px-4 py-3 flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {rows.length} row{rows.length !== 1 ? 's' : ''} • {validRowsCount} valid
+              <div className="border-t border-border bg-muted/30 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+                  <span>
+                    {rows.length} row{rows.length !== 1 ? "s" : ""} • {validRowsCount} valid
+                    {rows.length > 0 ? (
+                      <>
+                        {" "}
+                        • Showing {tableRangeStart}–{tableRangeEnd}
+                      </>
+                    ) : null}
+                  </span>
+                  {mode === "draft" && unpublishedRowCount > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto p-0 text-xs font-medium text-foreground"
+                        onClick={selectAllUnpublishedForPublish}
+                      >
+                        Select all unpublished ({unpublishedRowCount})
+                      </Button>
+                      <span className="text-border">·</span>
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto p-0 text-xs font-medium text-muted-foreground"
+                        onClick={() => setPublishSelection(new Set())}
+                        disabled={publishSelection.size === 0}
+                      >
+                        Clear publish selection
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
-                <Button
-                  onClick={addRow}
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2 text-[#1A1E26] hover:text-[#1A1E26] hover:bg-[#1A1E26]/10"
-                  disabled={loading}
-                >
-                  <PlusIcon className="size-4" />
-                  Add Row
-                </Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {totalTablePages > 1 ? (
+                    <div className="mr-1 flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                        disabled={tablePage <= 1}
+                      >
+                        Prev
+                      </Button>
+                      <span className="min-w-[96px] text-center text-xs text-muted-foreground tabular-nums">
+                        Page {tablePage} / {totalTablePages}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
+                        disabled={tablePage >= totalTablePages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  ) : null}
+                  <Button
+                    onClick={addRow}
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-2 text-[#1A1E26] hover:text-[#1A1E26] hover:bg-[#1A1E26]/10"
+                    disabled={loading}
+                  >
+                    <PlusIcon className="size-4" />
+                    Add Row
+                  </Button>
+                </div>
               </div>
             </div>
           )}

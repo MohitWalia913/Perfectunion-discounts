@@ -62,8 +62,8 @@ export default function DiscountDraftsListPage() {
               Saved bulk drafts
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Open a draft to edit the same table as bulk create, publish to Treez, or set an
-              auto-publish date per row.
+              Open a draft to edit the same table as bulk create, publish to Treez, or set one
+              auto-publish day for all unpublished rows (cron).
             </p>
           </div>
           <Button

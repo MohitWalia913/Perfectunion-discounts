@@ -135,6 +135,14 @@ export function recomputeRowMeta(row: BulkDiscountRow): BulkDiscountRow {
   }
 }
 
+/** Every row has a non-empty `publishedAt` — safe to remove the draft from storage. */
+export function isBulkDraftFullyPublished(rows: BulkDiscountRow[]): boolean {
+  return (
+    rows.length > 0 &&
+    rows.every((r) => typeof r.publishedAt === "string" && r.publishedAt.trim().length > 0)
+  )
+}
+
 export function deserializeBulkRows(raw: unknown): BulkDiscountRow[] {
   if (!Array.isArray(raw)) return [defaultEmptyRow()]
   const out: BulkDiscountRow[] = []

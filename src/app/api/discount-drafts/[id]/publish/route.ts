@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/profile"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import {
   deserializeBulkRows,
+  isBulkDraftFullyPublished,
   recomputeRowMeta,
   serializeBulkRows,
   validateBulkRow,
@@ -115,13 +116,13 @@ export async function POST(
     }
   }
 
-  const { error: saveErr } = await admin
-    .from("bulk_discount_drafts")
-    .update({
-      rows: serializeBulkRows(rows),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", draftId)
+  const fullyPublished = isBulkDraftFullyPublished(rows)
+  const { error: saveErr } = fullyPublished
+    ? await admin.from("bulk_discount_drafts").delete().eq("id", draftId)
+    : await admin.from("bulk_discount_drafts").update({
+        rows: serializeBulkRows(rows),
+        updated_at: new Date().toISOString(),
+      }).eq("id", draftId)
 
   if (saveErr) {
     return NextResponse.json(
@@ -136,5 +137,6 @@ export async function POST(
     published: okCount,
     total: results.length,
     results,
+    draftRemoved: fullyPublished,
   })
 }

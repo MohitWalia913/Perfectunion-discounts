@@ -8,6 +8,7 @@ import { NextResponse } from "next/server"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import {
   deserializeBulkRows,
+  isBulkDraftFullyPublished,
   recomputeRowMeta,
   serializeBulkRows,
   validateBulkRow,
@@ -104,7 +105,9 @@ export async function GET(request: Request) {
       }
     }
 
-    if (changed) {
+    if (isBulkDraftFullyPublished(rows)) {
+      await admin.from("bulk_discount_drafts").delete().eq("id", d.id)
+    } else if (changed) {
       await admin
         .from("bulk_discount_drafts")
         .update({
