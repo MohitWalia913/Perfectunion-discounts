@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { DashboardKBar, DashboardKBarTrigger } from "@/components/dashboard-kbar"
 import {
   Sidebar,
   SidebarContent,
@@ -165,7 +166,7 @@ export function DashboardShell({
   }, [collapseForBulk])
 
   return (
-    <>
+    <DashboardKBar>
       <SidebarProvider open={open} onOpenChange={setOpen}>
         <Sidebar collapsible="icon" variant="inset" className={SIDEBAR_SURFACE_CLASS}>
           <SidebarHeader className="border-b border-sidebar-border/80 p-3">
@@ -256,7 +257,7 @@ export function DashboardShell({
                 Open or close the sidebar
               </TooltipContent>
             </Tooltip>
-            <div className="min-w-0 flex-1" aria-hidden />
+            <DashboardKBarTrigger />
             {headerActions ? (
               <div className="flex shrink-0 items-center gap-2">{headerActions}</div>
             ) : null}
@@ -301,6 +302,6 @@ export function DashboardShell({
           })}
         </div>
       </nav>
-    </>
+    </DashboardKBar>
   )
 }

@@ -5,14 +5,12 @@ import Link from "next/link"
 import { ActionTooltip } from "@/components/action-tooltip"
 import {
   ArrowUpRightIcon,
-  BookOpenIcon,
   CircleHelpIcon,
   FileStackIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
   MailIcon,
   MegaphoneIcon,
-  SettingsIcon,
   SparklesIcon,
   UploadIcon,
   UsersIcon,
@@ -82,15 +80,9 @@ export function DashboardHelpPage() {
                 We&apos;re here to help
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-[15px] lg:text-base">
-                Questions about discounts, drafts, publishing, or access? Reach the WebDS team by email. For
-                step-by-step product guidance, start with{" "}
-                <Link
-                  href="/dashboard/how-to-use"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  How to use
-                </Link>
-                .
+                Questions about discounts, drafts, publishing, or access? Reach the WebDS team by email, or use
+                the search bar in the header (keyboard: Cmd+K on Mac, Ctrl+K on Windows) to jump anywhere in the
+                app.
               </p>
             </div>
 
@@ -168,14 +160,6 @@ export function DashboardHelpPage() {
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <PageLink
-              href="/dashboard/how-to-use"
-              icon={BookOpenIcon}
-              description="Guides for bulk discounts, Sales Promo, and users."
-              tooltip="Open the full product guide (screenshots and workflows)."
-            >
-              How to use
-            </PageLink>
-            <PageLink
               href="/dashboard"
               icon={LayoutGridIcon}
               description="Browse and manage existing discounts."
@@ -215,14 +199,6 @@ export function DashboardHelpPage() {
             >
               Users
             </PageLink>
-            <PageLink
-              href="/dashboard/settings"
-              icon={SettingsIcon}
-              description="Account and workspace preferences."
-              tooltip="Workspace and profile settings for your account."
-            >
-              Settings
-            </PageLink>
           </div>
         </section>
 
@@ -237,8 +213,10 @@ export function DashboardHelpPage() {
             <div>
               <dt className="font-medium text-foreground">Where is the product documentation?</dt>
               <dd className="mt-1 text-muted-foreground">
-                Open <strong className="text-foreground">How to use</strong> in the sidebar for curated
-                walkthroughs that match this dashboard.
+                Use the header <strong className="text-foreground">Search pages</strong> command (
+                <kbd className="rounded border border-border bg-muted px-1">Cmd+K</kbd> /{" "}
+                <kbd className="rounded border border-border bg-muted px-1">Ctrl+K</kbd>
+                ) to open quick navigation. Your team may also share internal runbooks by email.
               </dd>
             </div>
             <div>
