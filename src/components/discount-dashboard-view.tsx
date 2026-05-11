@@ -4,6 +4,7 @@ import * as React from "react"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { DiscountManagerClient } from "@/components/discount-manager-client"
 import { DiscountManagerSkeleton } from "@/components/discount-manager-skeleton"
+import { ActionTooltip } from "@/components/action-tooltip"
 import { Button } from "@/components/ui/button"
 import {
   SidebarMenuButton,
@@ -197,10 +198,12 @@ export function DiscountDashboardView() {
               <code className="rounded bg-muted px-1 py-0.5">.env.local</code>. Your certificate must allow the org-level
               discount service endpoint.
             </p>
-            <Button type="button" size="sm" variant="outline" className="mt-4 gap-2" onClick={() => void runFetch(true)}>
-              <RefreshCwIcon className="size-4" />
-              Try again
-            </Button>
+            <ActionTooltip label="Request a fresh list of discounts from Treez." side="top">
+              <Button type="button" size="sm" variant="outline" className="mt-4 gap-2" onClick={() => void runFetch(true)}>
+                <RefreshCwIcon className="size-4" />
+                Try again
+              </Button>
+            </ActionTooltip>
           </div>
         ) : showSkeleton ? (
           <DiscountManagerSkeleton />

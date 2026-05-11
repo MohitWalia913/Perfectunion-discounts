@@ -1,5 +1,8 @@
+"use client"
+
 import type { ReactNode } from "react"
 import Link from "next/link"
+import { ActionTooltip } from "@/components/action-tooltip"
 import {
   ArrowUpRightIcon,
   BookOpenIcon,
@@ -27,34 +30,38 @@ function PageLink({
   children,
   description,
   icon: Icon,
+  tooltip,
 }: {
   href: string
   children: ReactNode
   description: string
   icon: React.ComponentType<{ className?: string }>
+  tooltip: string
 }) {
   return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex gap-4 rounded-xl border border-border/80 bg-card p-4 shadow-sm transition-colors",
-        "hover:border-primary/25 hover:bg-primary/[0.03]",
-      )}
-    >
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-primary/12 bg-primary/[0.06] text-primary">
-        <Icon className="size-5" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1 font-medium text-foreground group-hover:text-primary">
-          {children}
-          <ArrowUpRightIcon
-            className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-            aria-hidden
-          />
+    <ActionTooltip label={tooltip} side="top">
+      <Link
+        href={href}
+        className={cn(
+          "group flex gap-4 rounded-xl border border-border/80 bg-card p-4 shadow-sm transition-colors",
+          "hover:border-primary/25 hover:bg-primary/[0.03]",
+        )}
+      >
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-primary/12 bg-primary/[0.06] text-primary">
+          <Icon className="size-5" aria-hidden />
         </span>
-        <span className="mt-0.5 block text-sm text-muted-foreground">{description}</span>
-      </span>
-    </Link>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1 font-medium text-foreground group-hover:text-primary">
+            {children}
+            <ArrowUpRightIcon
+              className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden
+            />
+          </span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">{description}</span>
+        </span>
+      </Link>
+    </ActionTooltip>
   )
 }
 
@@ -104,16 +111,18 @@ export function DashboardHelpPage() {
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     We read every message and reply as soon as we can during business hours.
                   </p>
-                  <a
-                    href={mailto}
-                    className={cn(
-                      buttonVariants({ size: "default" }),
-                      "mt-4 inline-flex w-full justify-center gap-2 sm:w-auto",
-                    )}
-                  >
-                    <MailIcon className="size-4" aria-hidden />
-                    Email support
-                  </a>
+                  <ActionTooltip label={`Copy address or open ${SUPPORT_EMAIL} in your mail app.`} side="top">
+                    <a
+                      href={mailto}
+                      className={cn(
+                        buttonVariants({ size: "default" }),
+                        "mt-4 inline-flex w-full justify-center gap-2 sm:w-auto",
+                      )}
+                    >
+                      <MailIcon className="size-4" aria-hidden />
+                      Email support
+                    </a>
+                  </ActionTooltip>
                 </div>
               </div>
             </aside>
@@ -162,6 +171,7 @@ export function DashboardHelpPage() {
               href="/dashboard/how-to-use"
               icon={BookOpenIcon}
               description="Guides for bulk discounts, Sales Promo, and users."
+              tooltip="Open the full product guide (screenshots and workflows)."
             >
               How to use
             </PageLink>
@@ -169,6 +179,7 @@ export function DashboardHelpPage() {
               href="/dashboard"
               icon={LayoutGridIcon}
               description="Browse and manage existing discounts."
+              tooltip="Go to the discount manager: filters, edit in Treez, and pagination."
             >
               All discounts
             </PageLink>
@@ -176,6 +187,7 @@ export function DashboardHelpPage() {
               href="/dashboard/discounts/bulk-upload"
               icon={UploadIcon}
               description="Create many discounts at once from the table."
+              tooltip="Open the bulk upload grid to add many discounts before saving or publishing."
             >
               Bulk upload discounts
             </PageLink>
@@ -183,6 +195,7 @@ export function DashboardHelpPage() {
               href="/dashboard/discounts/drafts"
               icon={FileStackIcon}
               description="Save grids, publish rows, or schedule auto-publish."
+              tooltip="List saved bulk drafts; open one to publish or schedule rows."
             >
               Bulk drafts
             </PageLink>
@@ -190,16 +203,23 @@ export function DashboardHelpPage() {
               href="/dashboard/sales-promo"
               icon={MegaphoneIcon}
               description="Collaborative promo documents with your team."
+              tooltip="Sales Promo — open the shared promo workspace (more help here later)."
             >
               Sales Promo
             </PageLink>
-            <PageLink href="/dashboard/users" icon={UsersIcon} description="Invite and manage teammates.">
+            <PageLink
+              href="/dashboard/users"
+              icon={UsersIcon}
+              description="Invite and manage teammates."
+              tooltip="Invite users, assign Admin or Manager, refresh the roster."
+            >
               Users
             </PageLink>
             <PageLink
               href="/dashboard/settings"
               icon={SettingsIcon}
               description="Account and workspace preferences."
+              tooltip="Workspace and profile settings for your account."
             >
               Settings
             </PageLink>

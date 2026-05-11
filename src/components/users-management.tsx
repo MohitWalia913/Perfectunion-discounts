@@ -4,6 +4,7 @@ import * as React from "react"
 import { canCreateRole, canDeleteUser } from "@/lib/auth/permissions"
 import type { AppRole, ProfileRow } from "@/lib/auth/types"
 import { Button } from "@/components/ui/button"
+import { ActionTooltip } from "@/components/action-tooltip"
 import {
   Dialog,
   DialogContent,
@@ -248,15 +249,17 @@ export function UsersManagement() {
         >
           <p className="font-medium text-destructive">Could not verify your account</p>
           <p className="mt-2 text-muted-foreground">{loadError}</p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4 gap-2"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCwIcon className="size-4" aria-hidden />
-            Reload page
-          </Button>
+          <ActionTooltip label="Reload the page to retry loading your session." side="top">
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 gap-2"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCwIcon className="size-4" aria-hidden />
+              Reload page
+            </Button>
+          </ActionTooltip>
         </div>
       </div>
     )
@@ -278,26 +281,30 @@ export function UsersManagement() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} aria-hidden />
-            Refresh
-          </Button>
-          {canInvite ? (
+          <ActionTooltip label="Reload the user list from the server." side="top">
             <Button
               type="button"
-              className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
-              onClick={openCreate}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => void load()}
+              disabled={loading}
             >
-              <PlusIcon className="size-4" aria-hidden />
-              Add user
+              <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} aria-hidden />
+              Refresh
             </Button>
+          </ActionTooltip>
+          {canInvite ? (
+            <ActionTooltip label="Create a confirmed Supabase user and send them a temporary password." side="top">
+              <Button
+                type="button"
+                className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
+                onClick={openCreate}
+              >
+                <PlusIcon className="size-4" aria-hidden />
+                Add user
+              </Button>
+            </ActionTooltip>
           ) : me?.role === "manager" ? (
             <span className="text-xs text-muted-foreground">View only</span>
           ) : null}
@@ -375,20 +382,22 @@ export function UsersManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       {canDel ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          disabled={deletingId === u.id}
-                          onClick={() => void handleDelete(u)}
-                        >
-                          {deletingId === u.id ? (
-                            <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                          ) : (
-                            <Trash2Icon className="size-4" aria-hidden />
-                          )}
-                        </Button>
+                        <ActionTooltip label={`Remove ${u.email ?? "this user"} from the workspace (irreversible).`} side="left">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            disabled={deletingId === u.id}
+                            onClick={() => void handleDelete(u)}
+                          >
+                            {deletingId === u.id ? (
+                              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                            ) : (
+                              <Trash2Icon className="size-4" aria-hidden />
+                            )}
+                          </Button>
+                        </ActionTooltip>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -425,22 +434,24 @@ export function UsersManagement() {
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label htmlFor="new-pass">Temporary password</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto gap-1 px-2 py-1 text-xs"
-                  onClick={() => {
-                    const p = generateSecurePassword()
-                    setPassword(p)
-                    toast.message("New password generated", {
-                      description: "Copy it now — it won’t be shown again after you leave.",
-                    })
-                  }}
-                >
-                  <SparklesIcon className="size-3.5" aria-hidden />
-                  Generate
-                </Button>
+                <ActionTooltip label="Fill the password field with a random strong value." side="left">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto gap-1 px-2 py-1 text-xs"
+                    onClick={() => {
+                      const p = generateSecurePassword()
+                      setPassword(p)
+                      toast.message("New password generated", {
+                        description: "Copy it now — it won’t be shown again after you leave.",
+                      })
+                    }}
+                  >
+                    <SparklesIcon className="size-3.5" aria-hidden />
+                    Generate
+                  </Button>
+                </ActionTooltip>
               </div>
               <Input
                 id="new-pass"
@@ -487,24 +498,28 @@ export function UsersManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
-              disabled={saving}
-              onClick={() => void handleCreate()}
-            >
-              {saving ? (
-                <>
-                  <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                  Creating…
-                </>
-              ) : (
-                "Create user"
-              )}
-            </Button>
+            <ActionTooltip label="Close without creating a user." side="top">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+            </ActionTooltip>
+            <ActionTooltip label="Create the account with the email, password, and role above." side="top">
+              <Button
+                type="button"
+                className="bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
+                disabled={saving}
+                onClick={() => void handleCreate()}
+              >
+                {saving ? (
+                  <>
+                    <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                    Creating…
+                  </>
+                ) : (
+                  "Create user"
+                )}
+              </Button>
+            </ActionTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

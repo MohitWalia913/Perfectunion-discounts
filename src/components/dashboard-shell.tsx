@@ -16,6 +16,11 @@ import {
 import { cn } from "@/lib/utils"
 import { LogoutSidebarMenuItem } from "@/components/logout-button"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -245,7 +250,12 @@ export function DashboardShell({
           )}
         >
           <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/90 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75 sm:px-4 lg:px-6">
-            <SidebarTrigger className="-ml-0.5" />
+            <Tooltip>
+              <TooltipTrigger render={<SidebarTrigger className="-ml-0.5" />} />
+              <TooltipContent side="bottom" align="start" sideOffset={6}>
+                Open or close the sidebar
+              </TooltipContent>
+            </Tooltip>
             <div className="min-w-0 flex-1" aria-hidden />
             {headerActions ? (
               <div className="flex shrink-0 items-center gap-2">{headerActions}</div>

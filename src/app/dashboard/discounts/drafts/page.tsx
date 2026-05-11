@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { ActionTooltip } from "@/components/action-tooltip"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, Loader2Icon, PencilIcon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -44,15 +45,17 @@ export default function DiscountDraftsListPage() {
   return (
     <DashboardShell
       headerActions={
-        <Button
-          type="button"
-          variant="ghost"
-          className="gap-2"
-          onClick={() => router.push("/dashboard")}
-        >
-          <ArrowLeftIcon className="size-4" />
-          Back
-        </Button>
+        <ActionTooltip label="Return to the discount dashboard." side="bottom">
+          <Button
+            type="button"
+            variant="ghost"
+            className="gap-2"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeftIcon className="size-4" />
+            Back
+          </Button>
+        </ActionTooltip>
       }
     >
       <div className="flex flex-1 flex-col gap-6 p-4 pt-6 lg:p-8 lg:pt-8">
@@ -66,14 +69,16 @@ export default function DiscountDraftsListPage() {
               auto-publish day for all unpublished rows (cron).
             </p>
           </div>
-          <Button
-            type="button"
-            className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
-            render={<Link href="/dashboard/discounts/bulk-upload" prefetch />}
-          >
-            <PlusIcon className="size-4" />
-            New bulk sheet
-          </Button>
+          <ActionTooltip label="Open a blank bulk sheet to build new discounts." side="top">
+            <Button
+              type="button"
+              className="gap-2 bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
+              render={<Link href="/dashboard/discounts/bulk-upload" prefetch />}
+            >
+              <PlusIcon className="size-4" />
+              New bulk sheet
+            </Button>
+          </ActionTooltip>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
@@ -120,16 +125,18 @@ export default function DiscountDraftsListPage() {
                         {d.updated_at ? new Date(d.updated_at).toLocaleString() : "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                          render={<Link href={`/dashboard/discounts/drafts/${d.id}`} prefetch />}
-                        >
-                          <PencilIcon className="size-3.5" />
-                          Edit
-                        </Button>
+                        <ActionTooltip label={`Open “${d.title}” in the bulk draft editor.`} side="left">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            render={<Link href={`/dashboard/discounts/drafts/${d.id}`} prefetch />}
+                          >
+                            <PencilIcon className="size-3.5" />
+                            Edit
+                          </Button>
+                        </ActionTooltip>
                       </td>
                     </tr>
                   ))

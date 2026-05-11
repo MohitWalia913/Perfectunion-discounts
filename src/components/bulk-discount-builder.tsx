@@ -38,6 +38,8 @@ import {
 } from "@/lib/bulk-discount-io"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import { exportActivePercentDiscountsToBulkRows } from "@/lib/bulk-discount-from-treez"
+import { ActionTooltip } from "@/components/action-tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const TABLE_PAGE_SIZE = 10
 
@@ -452,26 +454,30 @@ export function BulkDiscountBuilder({
       headerActions={
         <div className="flex items-center gap-1">
           {mode === "draft" ? (
+            <ActionTooltip label="Return to the list of saved bulk drafts." side="bottom">
+              <Button
+                type="button"
+                variant="ghost"
+                className="gap-2"
+                onClick={() => router.push("/dashboard/discounts/drafts")}
+                disabled={loading}
+              >
+                All drafts
+              </Button>
+            </ActionTooltip>
+          ) : null}
+          <ActionTooltip label="Go back to the discount dashboard." side="bottom">
             <Button
               type="button"
+              onClick={() => router.push("/dashboard")}
               variant="ghost"
               className="gap-2"
-              onClick={() => router.push("/dashboard/discounts/drafts")}
               disabled={loading}
             >
-              All drafts
+              <ArrowLeftIcon className="size-4" />
+              Back
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            variant="ghost"
-            className="gap-2"
-            disabled={loading}
-          >
-            <ArrowLeftIcon className="size-4" />
-            Back
-          </Button>
+          </ActionTooltip>
         </div>
       }
     >
@@ -509,107 +515,121 @@ export function BulkDiscountBuilder({
                         className="h-9 w-[160px] text-sm"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 gap-2"
-                      onClick={applyGlobalAutoPublish}
-                      disabled={loading || loadingData || !globalAutoPublishDate}
-                    >
-                      <CalendarIcon className="size-4" />
-                      Apply to draft
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-9 text-muted-foreground"
-                      onClick={clearGlobalAutoPublish}
-                      disabled={loading || loadingData}
-                    >
-                      Clear schedule
-                    </Button>
+                    <ActionTooltip label="Set this UTC date on every unpublished row for the daily cron to publish automatically." side="top">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 gap-2"
+                        onClick={applyGlobalAutoPublish}
+                        disabled={loading || loadingData || !globalAutoPublishDate}
+                      >
+                        <CalendarIcon className="size-4" />
+                        Apply to draft
+                      </Button>
+                    </ActionTooltip>
+                    <ActionTooltip label="Remove scheduled auto-publish from all unpublished rows in this draft." side="top">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-9 text-muted-foreground"
+                        onClick={clearGlobalAutoPublish}
+                        disabled={loading || loadingData}
+                      >
+                        Clear schedule
+                      </Button>
+                    </ActionTooltip>
                   </div>
                 ) : null}
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 xl:pt-1">
-              <Button
-                type="button"
-                onClick={() => void handleImportLivePercentDiscounts()}
-                variant="outline"
-                className="h-9 gap-2"
-                disabled={loading || loadingData || importingLive || savingDraft}
-              >
-                {importingLive ? (
-                  <>
-                    <Loader2Icon className="size-4 animate-spin" />
-                    Loading…
-                  </>
-                ) : (
-                  <>
-                    <DownloadIcon className="size-4" />
-                    Import live %
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={addRow}
-                variant="outline"
-                className="h-9 gap-2"
-                disabled={loading || loadingData}
-              >
-                <PlusIcon className="size-4" />
-                Add Row
-              </Button>
-              <Button
-                onClick={() => void handleSaveDraft()}
-                variant="outline"
-                className="h-9 gap-2 border-dashed"
-                disabled={savingDraft || loadingData}
-              >
-                {savingDraft ? (
-                  <>
-                    <Loader2Icon className="size-4 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  <>Save draft</>
-                )}
-              </Button>
-              {mode === "draft" && draftId ? (
+              <ActionTooltip label="Replace the grid with active percent discounts currently in Treez (with confirmation)." side="top">
                 <Button
                   type="button"
-                  onClick={() => void handlePublishSelected()}
-                  className="h-9 gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
-                  disabled={loading || loadingData || publishSelection.size === 0}
+                  onClick={() => void handleImportLivePercentDiscounts()}
+                  variant="outline"
+                  className="h-9 gap-2"
+                  disabled={loading || loadingData || importingLive || savingDraft}
                 >
-                  {loading ? (
-                    <Loader2Icon className="size-4 animate-spin" />
-                  ) : (
-                    <CheckIcon className="size-4" />
-                  )}
-                  Publish selected
-                </Button>
-              ) : null}
-              {mode === "create" ? (
-                <Button
-                  onClick={() => void handleBulkCreate()}
-                  disabled={loading || validRowsCount === 0 || loadingData}
-                  className="h-9 gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white"
-                >
-                  {loading ? (
+                  {importingLive ? (
                     <>
                       <Loader2Icon className="size-4 animate-spin" />
-                      Creating...
+                      Loading…
                     </>
                   ) : (
                     <>
-                      <CheckIcon className="size-4" />
-                      Create {validRowsCount > 0 ? `${validRowsCount} ` : ""}Discount
-                      {validRowsCount !== 1 ? "s" : ""}
+                      <DownloadIcon className="size-4" />
+                      Import live %
                     </>
                   )}
                 </Button>
+              </ActionTooltip>
+              <ActionTooltip label="Append a new empty row to the bulk table." side="top">
+                <Button
+                  onClick={addRow}
+                  variant="outline"
+                  className="h-9 gap-2"
+                  disabled={loading || loadingData}
+                >
+                  <PlusIcon className="size-4" />
+                  Add Row
+                </Button>
+              </ActionTooltip>
+              <ActionTooltip label="Save the current grid and draft name to the server." side="top">
+                <Button
+                  onClick={() => void handleSaveDraft()}
+                  variant="outline"
+                  className="h-9 gap-2 border-dashed"
+                  disabled={savingDraft || loadingData}
+                >
+                  {savingDraft ? (
+                    <>
+                      <Loader2Icon className="size-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>Save draft</>
+                  )}
+                </Button>
+              </ActionTooltip>
+              {mode === "draft" && draftId ? (
+                <ActionTooltip label="Create selected rows as live discounts in Treez (valid rows only)." side="top">
+                  <Button
+                    type="button"
+                    onClick={() => void handlePublishSelected()}
+                    className="h-9 gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
+                    disabled={loading || loadingData || publishSelection.size === 0}
+                  >
+                    {loading ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                      <CheckIcon className="size-4" />
+                    )}
+                    Publish selected
+                  </Button>
+                </ActionTooltip>
+              ) : null}
+              {mode === "create" ? (
+                <ActionTooltip label="Create every valid row in Treez as a new service discount." side="top">
+                  <Button
+                    onClick={() => void handleBulkCreate()}
+                    disabled={loading || validRowsCount === 0 || loadingData}
+                    className="h-9 gap-2 bg-[#1A1E26] hover:bg-[#1A1E26]/90 text-white"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2Icon className="size-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <CheckIcon className="size-4" />
+                        Create {validRowsCount > 0 ? `${validRowsCount} ` : ""}Discount
+                        {validRowsCount !== 1 ? "s" : ""}
+                      </>
+                    )}
+                  </Button>
+                </ActionTooltip>
               ) : null}
             </div>
           </div>
@@ -637,15 +657,24 @@ export function BulkDiscountBuilder({
                       {mode === "draft" ? (
                         <>
                           <th className="px-2 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-12">
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="leading-none">Pub</span>
-                              <Checkbox
-                                checked={allPageEligibleSelected}
-                                disabled={eligiblePublishIdsOnPage.length === 0}
-                                onCheckedChange={(c) => toggleSelectPageForPublish(c === true)}
-                                aria-label="Select all unpublished rows on this page for publish"
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="leading-none">Pub</span>
+                                    <Checkbox
+                                      checked={allPageEligibleSelected}
+                                      disabled={eligiblePublishIdsOnPage.length === 0}
+                                      onCheckedChange={(c) => toggleSelectPageForPublish(c === true)}
+                                      aria-label="Select all unpublished rows on this page for publish"
+                                    />
+                                  </div>
+                                }
                               />
-                            </div>
+                              <TooltipContent side="top" sideOffset={6} className="max-w-xs text-left">
+                                Select or clear all unpublished rows on this page for publishing to Treez.
+                              </TooltipContent>
+                            </Tooltip>
                           </th>
                           <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">
                             Status
@@ -1039,15 +1068,17 @@ export function BulkDiscountBuilder({
                           </Popover>
                         </td>
                         <td className="px-2 py-2">
-                          <Button
-                            onClick={() => removeRow(row.id)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            disabled={loading}
-                          >
-                            <Trash2Icon className="size-3.5" />
-                          </Button>
+                          <ActionTooltip label="Remove this row from the grid." side="left">
+                            <Button
+                              onClick={() => removeRow(row.id)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={loading}
+                            >
+                              <Trash2Icon className="size-3.5" />
+                            </Button>
+                          </ActionTooltip>
                         </td>
                       </tr>
                     ))}
@@ -1068,65 +1099,75 @@ export function BulkDiscountBuilder({
                   </span>
                   {mode === "draft" && unpublishedRowCount > 0 ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto p-0 text-xs font-medium text-foreground"
-                        onClick={selectAllUnpublishedForPublish}
-                      >
-                        Select all unpublished ({unpublishedRowCount})
-                      </Button>
+                      <ActionTooltip label="Check every unpublished row in this draft for publishing." side="top">
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-xs font-medium text-foreground"
+                          onClick={selectAllUnpublishedForPublish}
+                        >
+                          Select all unpublished ({unpublishedRowCount})
+                        </Button>
+                      </ActionTooltip>
                       <span className="text-border">·</span>
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto p-0 text-xs font-medium text-muted-foreground"
-                        onClick={() => setPublishSelection(new Set())}
-                        disabled={publishSelection.size === 0}
-                      >
-                        Clear publish selection
-                      </Button>
+                      <ActionTooltip label="Uncheck all rows queued for publish." side="top">
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-xs font-medium text-muted-foreground"
+                          onClick={() => setPublishSelection(new Set())}
+                          disabled={publishSelection.size === 0}
+                        >
+                          Clear publish selection
+                        </Button>
+                      </ActionTooltip>
                     </div>
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {totalTablePages > 1 ? (
                     <div className="mr-1 flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => setTablePage((p) => Math.max(1, p - 1))}
-                        disabled={tablePage <= 1}
-                      >
-                        Prev
-                      </Button>
+                      <ActionTooltip label="Previous page of rows." side="top">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                          disabled={tablePage <= 1}
+                        >
+                          Prev
+                        </Button>
+                      </ActionTooltip>
                       <span className="min-w-[96px] text-center text-xs text-muted-foreground tabular-nums">
                         Page {tablePage} / {totalTablePages}
                       </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
-                        disabled={tablePage >= totalTablePages}
-                      >
-                        Next
-                      </Button>
+                      <ActionTooltip label="Next page of rows." side="top">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
+                          disabled={tablePage >= totalTablePages}
+                        >
+                          Next
+                        </Button>
+                      </ActionTooltip>
                     </div>
                   ) : null}
-                  <Button
-                    onClick={addRow}
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-2 text-[#1A1E26] hover:text-[#1A1E26] hover:bg-[#1A1E26]/10"
-                    disabled={loading}
-                  >
-                    <PlusIcon className="size-4" />
-                    Add Row
-                  </Button>
+                  <ActionTooltip label="Add another row at the end of the draft." side="top">
+                    <Button
+                      onClick={addRow}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-2 text-[#1A1E26] hover:text-[#1A1E26] hover:bg-[#1A1E26]/10"
+                      disabled={loading}
+                    >
+                      <PlusIcon className="size-4" />
+                      Add Row
+                    </Button>
+                  </ActionTooltip>
                 </div>
               </div>
             </div>

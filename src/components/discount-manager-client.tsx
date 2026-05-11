@@ -19,7 +19,13 @@ import {
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { DiscountDashboardEditSheet } from "@/components/discount-dashboard-edit-sheet"
+import { ActionTooltip } from "@/components/action-tooltip"
 import {
   getDiscountActive,
   getDiscountAmount,
@@ -56,18 +62,27 @@ function StoresCollectionsCell({ row }: { row: DiscountRow }) {
 
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 max-w-[min(100%,14rem)] justify-between gap-1 px-2 text-left text-xs font-normal"
-          />
-        }
-      >
-        <span className="truncate">{label}</span>
-        <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 max-w-[min(100%,14rem)] justify-between gap-1 px-2 text-left text-xs font-normal"
+                />
+              }
+            >
+              <span className="truncate">{label}</span>
+              <ChevronDownIcon className="size-3 shrink-0 opacity-50" />
+            </PopoverTrigger>
+          }
+        />
+        <TooltipContent side="top" align="start" sideOffset={6} className="max-w-xs text-left">
+          View stores and product collections assigned to this discount in Treez.
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent className="w-[min(100vw-2rem,340px)] p-0" align="start">
         <div className="max-h-72 overflow-y-auto p-3 text-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Stores</p>
@@ -217,6 +232,47 @@ const SCHEDULE_FILTER_LABELS: Record<ScheduleScopeFilter, string> = {
   repeat_day: "Repeats daily",
   repeat_week: "Repeats weekly",
   repeat_month: "Repeats monthly",
+}
+
+function DiscountFilterPopover({
+  tooltip,
+  buttonClassName,
+  disabled,
+  triggerInner,
+  popover,
+}: {
+  tooltip: string
+  buttonClassName: string
+  disabled?: boolean
+  triggerInner: React.ReactNode
+  popover: React.ReactNode
+}) {
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={buttonClassName}
+                  disabled={disabled}
+                />
+              }
+            >
+              {triggerInner}
+            </PopoverTrigger>
+          }
+        />
+        <TooltipContent side="top" align="center" sideOffset={6} className="max-w-xs text-left">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+      {popover}
+    </Popover>
+  )
 }
 
 export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
@@ -630,16 +686,18 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {selectedDiscounts.size > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkEditSelected}
-                disabled={sheetSaving}
-                className="gap-2"
-              >
-                <Edit2Icon className="h-4 w-4" />
-                Edit {selectedDiscounts.size} selected
-              </Button>
+              <ActionTooltip label="Open the edit panel for the first selected discount. After saving, select another row to continue." side="bottom">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkEditSelected}
+                  disabled={sheetSaving}
+                  className="gap-2"
+                >
+                  <Edit2Icon className="h-4 w-4" />
+                  Edit {selectedDiscounts.size} selected
+                </Button>
+              </ActionTooltip>
             )}
           </div>
         </div>
@@ -656,251 +714,243 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
-                    />
-                  }
-                >
-                  {statusBadgeCount > 0 ? (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
-                      {statusBadgeCount}
-                    </span>
-                  ) : null}
-                  Status
-                  <ChevronDownIcon className="size-4 opacity-60" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="z-[100] w-72 bg-popover p-0 shadow-lg">
-                  <div className="border-b border-border/60 bg-muted/30 p-3">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">Filter by Status</p>
-                    <p className="text-xs text-muted-foreground">Active only by default. Check inactive to include archived percent discounts.</p>
-                  </div>
-                  <div className="bg-popover p-3">
-                    <div className="flex flex-col gap-3">
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
-                        <Checkbox
-                          checked={includeActive}
-                          onCheckedChange={(v) => setIncludeActive(v === true)}
-                        />
-                        <div className="flex flex-1 items-center justify-between">
-                          <span className="text-sm font-medium">Active</span>
-                          <Badge variant="default" className="h-5 text-[10px]">
-                            {activePercentCount}
-                          </Badge>
-                        </div>
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
-                        <Checkbox
-                          checked={includeInactive}
-                          onCheckedChange={(v) => setIncludeInactive(v === true)}
-                        />
-                        <div className="flex flex-1 items-center justify-between">
-                          <span className="text-sm font-medium">Inactive</span>
-                          <Badge variant="secondary" className="h-5 text-[10px]">
-                            {inactivePercentCount}
-                          </Badge>
-                        </div>
-                      </label>
-                    </div>
-                    <Separator className="my-3" />
-                    <Button type="button" variant="outline" size="sm" className="h-8 w-full text-xs font-medium" onClick={() => {
-                      setIncludeActive(true)
-                      setIncludeInactive(false)
-                    }}>
-                      Reset to active only
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {allStores.length > 0 ? (
-                <Popover>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
-                        disabled={storesLoading}
-                      />
-                    }
-                  >
-                    {storesLoading ? (
-                      <span className="text-xs">Loading...</span>
-                    ) : storeBadgeCount > 0 ? (
+              <DiscountFilterPopover
+                tooltip="Filter by Treez active or inactive. Inactive includes archived percent discounts."
+                buttonClassName="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                triggerInner={
+                  <>
+                    {statusBadgeCount > 0 ? (
                       <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
-                        {storeBadgeCount}
+                        {statusBadgeCount}
                       </span>
                     ) : null}
-                    Store
+                    Status
                     <ChevronDownIcon className="size-4 opacity-60" />
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
+                  </>
+                }
+                popover={
+                  <PopoverContent align="start" className="z-[100] w-72 bg-popover p-0 shadow-lg">
                     <div className="border-b border-border/60 bg-muted/30 p-3">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">Filter by Location</p>
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        {storesLoading 
-                          ? "Loading stores from your organization..." 
-                          : `Select store locations to filter (${allStores.length} total)`
-                        }
-                      </p>
-                      <div className="mb-3 relative">
-                        <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          placeholder="Search stores..."
-                          value={storeSearchQuery}
-                          onChange={(e) => setStoreSearchQuery(e.target.value)}
-                          className="h-8 pl-9 text-sm bg-background"
-                          disabled={storesLoading}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="secondary" size="sm" className="h-7 text-xs font-medium" onClick={selectAllStores} disabled={storesLoading}>
-                          Select All
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs font-medium" onClick={clearAllStores} disabled={storesLoading}>
-                          Clear All
-                        </Button>
-                      </div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">Filter by Status</p>
+                      <p className="text-xs text-muted-foreground">Active only by default. Check inactive to include archived percent discounts.</p>
                     </div>
-                    <ScrollArea className="max-h-64">
-                      <div className="flex flex-col p-2 bg-popover">
-                        {storesLoading ? (
-                          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                            <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
-                            Loading stores...
+                    <div className="bg-popover p-3">
+                      <div className="flex flex-col gap-3">
+                        <label className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
+                          <Checkbox
+                            checked={includeActive}
+                            onCheckedChange={(v) => setIncludeActive(v === true)}
+                          />
+                          <div className="flex flex-1 items-center justify-between">
+                            <span className="text-sm font-medium">Active</span>
+                            <Badge variant="default" className="h-5 text-[10px]">
+                              {activePercentCount}
+                            </Badge>
                           </div>
-                        ) : filteredStores.length === 0 ? (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            {storeSearchQuery ? `No stores match "${storeSearchQuery}"` : "No stores found"}
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 transition-colors hover:bg-muted/50">
+                          <Checkbox
+                            checked={includeInactive}
+                            onCheckedChange={(v) => setIncludeInactive(v === true)}
+                          />
+                          <div className="flex flex-1 items-center justify-between">
+                            <span className="text-sm font-medium">Inactive</span>
+                            <Badge variant="secondary" className="h-5 text-[10px]">
+                              {inactivePercentCount}
+                            </Badge>
                           </div>
-                        ) : (
-                          filteredStores.map((name) => (
-                            <label
-                              key={name}
-                              className="relative z-10 flex cursor-pointer items-center gap-3 rounded-md bg-popover px-3 py-2.5 transition-colors hover:bg-muted/80"
-                            >
-                              <Checkbox
-                                checked={selectedStores.has(name)}
-                                onCheckedChange={(v) => toggleStore(name, v === true)}
-                              />
-                              <span className="text-sm font-medium leading-tight text-foreground">{name}</span>
-                            </label>
-                          ))
-                        )}
+                        </label>
                       </div>
-                    </ScrollArea>
-                    {storeSearchQuery && filteredStores.length > 0 && (
-                      <div className="border-t border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                        Showing {filteredStores.length} of {allStores.length} stores
-                      </div>
-                    )}
+                      <Separator className="my-3" />
+                      <Button type="button" variant="outline" size="sm" className="h-8 w-full text-xs font-medium" onClick={() => {
+                        setIncludeActive(true)
+                        setIncludeInactive(false)
+                      }}>
+                        Reset to active only
+                      </Button>
+                    </div>
                   </PopoverContent>
-                </Popover>
+                }
+              />
+
+              {allStores.length > 0 ? (
+                <DiscountFilterPopover
+                  tooltip="Only show discounts that apply to at least one of the store names you select."
+                  buttonClassName="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                  disabled={storesLoading}
+                  triggerInner={
+                    <>
+                      {storesLoading ? (
+                        <span className="text-xs">Loading...</span>
+                      ) : storeBadgeCount > 0 ? (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
+                          {storeBadgeCount}
+                        </span>
+                      ) : null}
+                      Store
+                      <ChevronDownIcon className="size-4 opacity-60" />
+                    </>
+                  }
+                  popover={
+                    <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
+                      <div className="border-b border-border/60 bg-muted/30 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">Filter by Location</p>
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          {storesLoading 
+                            ? "Loading stores from your organization..." 
+                            : `Select store locations to filter (${allStores.length} total)`
+                          }
+                        </p>
+                        <div className="mb-3 relative">
+                          <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Search stores..."
+                            value={storeSearchQuery}
+                            onChange={(e) => setStoreSearchQuery(e.target.value)}
+                            className="h-8 pl-9 text-sm bg-background"
+                            disabled={storesLoading}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs font-medium" onClick={selectAllStores} disabled={storesLoading}>
+                            Select All
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs font-medium" onClick={clearAllStores} disabled={storesLoading}>
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+                      <ScrollArea className="max-h-64">
+                        <div className="flex flex-col p-2 bg-popover">
+                          {storesLoading ? (
+                            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                              <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                              Loading stores...
+                            </div>
+                          ) : filteredStores.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                              {storeSearchQuery ? `No stores match "${storeSearchQuery}"` : "No stores found"}
+                            </div>
+                          ) : (
+                            filteredStores.map((name) => (
+                              <label
+                                key={name}
+                                className="relative z-10 flex cursor-pointer items-center gap-3 rounded-md bg-popover px-3 py-2.5 transition-colors hover:bg-muted/80"
+                              >
+                                <Checkbox
+                                  checked={selectedStores.has(name)}
+                                  onCheckedChange={(v) => toggleStore(name, v === true)}
+                                />
+                                <span className="text-sm font-medium leading-tight text-foreground">{name}</span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                      {storeSearchQuery && filteredStores.length > 0 && (
+                        <div className="border-t border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                          Showing {filteredStores.length} of {allStores.length} stores
+                        </div>
+                      )}
+                    </PopoverContent>
+                  }
+                />
               ) : null}
 
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
-                    />
-                  }
-                >
-                  {scheduleScope !== "all" ? (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
-                      1
-                    </span>
-                  ) : null}
-                  Schedule
-                  <ChevronDownIcon className="size-4 opacity-60" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
-                  <div className="border-b border-border/60 bg-muted/30 p-3">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">
-                      Filter by schedule
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Narrow by start/end dates on the discount schedule or by repeat type (Treez repeatType).
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-px bg-popover p-2">
-                    {(Object.keys(SCHEDULE_FILTER_LABELS) as ScheduleScopeFilter[]).map((key) => (
-                      <Button
-                        key={key}
-                        type="button"
-                        variant={scheduleScope === key ? "secondary" : "ghost"}
-                        className="h-9 w-full justify-start text-sm font-normal"
-                        onClick={() => setScheduleScope(key)}
-                      >
-                        {SCHEDULE_FILTER_LABELS[key]}
-                      </Button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {SHOW_LAST_UPDATED_MONTH_FILTER && updatedMonthOptions.length > 0 ? (
-                <Popover>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
-                      />
-                    }
-                  >
-                    {updatedMonthKey ? (
+              <DiscountFilterPopover
+                tooltip="Narrow rows by schedule: start/end dates present, or repeat type (daily / weekly / monthly) from Treez."
+                buttonClassName="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                triggerInner={
+                  <>
+                    {scheduleScope !== "all" ? (
                       <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
                         1
                       </span>
                     ) : null}
-                    Last updated
+                    Schedule
                     <ChevronDownIcon className="size-4 opacity-60" />
-                  </PopoverTrigger>
+                  </>
+                }
+                popover={
                   <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
                     <div className="border-b border-border/60 bg-muted/30 p-3">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">
-                        Filter by last updated (month)
+                        Filter by schedule
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">All stores:</span> discount-level{" "}
-                        <span className="font-medium text-foreground">updatedAt</span>.{" "}
-                        <span className="font-medium text-foreground">Specific stores:</span> latest{" "}
-                        <span className="font-medium text-foreground">storeCustomizations[].updatedAt</span> among
-                        selected locations (local month).
+                        Narrow by start/end dates on the discount schedule or by repeat type (Treez repeatType).
                       </p>
                     </div>
                     <div className="flex flex-col gap-px bg-popover p-2">
-                      <Button
-                        type="button"
-                        variant={updatedMonthKey === null ? "secondary" : "ghost"}
-                        className="h-9 w-full justify-start text-sm font-normal"
-                        onClick={() => setUpdatedMonthKey(null)}
-                      >
-                        All months
-                      </Button>
-                      {updatedMonthOptions.map((key) => (
+                      {(Object.keys(SCHEDULE_FILTER_LABELS) as ScheduleScopeFilter[]).map((key) => (
                         <Button
                           key={key}
                           type="button"
-                          variant={updatedMonthKey === key ? "secondary" : "ghost"}
+                          variant={scheduleScope === key ? "secondary" : "ghost"}
                           className="h-9 w-full justify-start text-sm font-normal"
-                          onClick={() => setUpdatedMonthKey(key)}
+                          onClick={() => setScheduleScope(key)}
                         >
-                          {formatUpdatedMonthLabel(key)}
+                          {SCHEDULE_FILTER_LABELS[key]}
                         </Button>
                       ))}
                     </div>
                   </PopoverContent>
-                </Popover>
+                }
+              />
+
+              {SHOW_LAST_UPDATED_MONTH_FILTER && updatedMonthOptions.length > 0 ? (
+                <DiscountFilterPopover
+                  tooltip="Filter to discounts last updated in a chosen month (uses discount updatedAt or per-store customization timestamps)."
+                  buttonClassName="h-9 gap-2 rounded-full border-border/80 px-3 font-normal shadow-none"
+                  triggerInner={
+                    <>
+                      {updatedMonthKey ? (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground px-1 text-[10px] font-semibold text-background">
+                          1
+                        </span>
+                      ) : null}
+                      Last updated
+                      <ChevronDownIcon className="size-4 opacity-60" />
+                    </>
+                  }
+                  popover={
+                    <PopoverContent align="start" className="z-[100] w-80 bg-popover p-0 shadow-lg">
+                      <div className="border-b border-border/60 bg-muted/30 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground">
+                          Filter by last updated (month)
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">All stores:</span> discount-level{" "}
+                          <span className="font-medium text-foreground">updatedAt</span>.{" "}
+                          <span className="font-medium text-foreground">Specific stores:</span> latest{" "}
+                          <span className="font-medium text-foreground">storeCustomizations[].updatedAt</span> among
+                          selected locations (local month).
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-px bg-popover p-2">
+                        <Button
+                          type="button"
+                          variant={updatedMonthKey === null ? "secondary" : "ghost"}
+                          className="h-9 w-full justify-start text-sm font-normal"
+                          onClick={() => setUpdatedMonthKey(null)}
+                        >
+                          All months
+                        </Button>
+                        {updatedMonthOptions.map((key) => (
+                          <Button
+                            key={key}
+                            type="button"
+                            variant={updatedMonthKey === key ? "secondary" : "ghost"}
+                            className="h-9 w-full justify-start text-sm font-normal"
+                            onClick={() => setUpdatedMonthKey(key)}
+                          >
+                            {formatUpdatedMonthLabel(key)}
+                          </Button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  }
+                />
               ) : null}
             </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
@@ -941,18 +991,29 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
             <thead className="border-b border-border bg-muted/50">
               <tr>
                 <th className="px-2 py-2 text-left align-middle">
-                  <Checkbox
-                    checked={
-                      pageRows.length > 0 &&
-                      pageRows.every((r) => {
-                        const rid = getDiscountRowId(r)
-                        return rid && selectedDiscounts.has(rid)
-                      })
-                    }
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all on this page"
-                    className="border-input"
-                  />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <span className="inline-flex cursor-default items-center p-0.5">
+                          <Checkbox
+                            checked={
+                              pageRows.length > 0 &&
+                              pageRows.every((r) => {
+                                const rid = getDiscountRowId(r)
+                                return rid && selectedDiscounts.has(rid)
+                              })
+                            }
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all on this page"
+                            className="border-input"
+                          />
+                        </span>
+                      }
+                    />
+                    <TooltipContent side="top" align="start" sideOffset={6} className="max-w-xs text-left">
+                      Select or clear every discount on this page for bulk edit.
+                    </TooltipContent>
+                  </Tooltip>
                 </th>
                 <th className="min-w-[28%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Title
@@ -1019,16 +1080,18 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                       </td>
                       <td className="px-2 py-2 align-middle">
                         <div className="flex items-center justify-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="size-8 hover:bg-muted/80 hover:text-primary"
-                            disabled={sheetSaving}
-                            onClick={() => openEditSheet(row)}
-                          >
-                            <Edit2Icon className="size-3.5" />
-                          </Button>
+                          <ActionTooltip label="Edit this discount in Treez from the side panel." side="left">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-8 hover:bg-muted/80 hover:text-primary"
+                              disabled={sheetSaving}
+                              onClick={() => openEditSheet(row)}
+                            >
+                              <Edit2Icon className="size-3.5" />
+                            </Button>
+                          </ActionTooltip>
                         </div>
                       </td>
                     </tr>
@@ -1048,24 +1111,28 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           {PAGE_SIZE} per page
         </p>
         <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pageClamped <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Previous
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pageClamped >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Next
-          </Button>
+          <ActionTooltip label="Go to the previous page of results." side="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pageClamped <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+          </ActionTooltip>
+          <ActionTooltip label="Go to the next page of results." side="top">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pageClamped >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </ActionTooltip>
         </div>
       </div>
 
