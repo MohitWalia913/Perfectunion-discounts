@@ -257,10 +257,11 @@ export function DashboardShell({
                 Open or close the sidebar
               </TooltipContent>
             </Tooltip>
-            <DashboardKBarTrigger />
-            {headerActions ? (
-              <div className="flex shrink-0 items-center gap-2">{headerActions}</div>
-            ) : null}
+            <div className="min-w-0 flex-1" aria-hidden />
+            <div className="flex shrink-0 items-center gap-2">
+              {headerActions}
+              <DashboardKBarTrigger />
+            </div>
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col">{children}</div>

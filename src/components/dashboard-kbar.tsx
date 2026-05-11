@@ -25,6 +25,11 @@ import {
   UsersIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 function DashboardKBarResults() {
@@ -156,30 +161,28 @@ export function DashboardKBarTrigger({ className }: { className?: string }) {
   const { query } = useKBar()
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => query.toggle()}
-        className={cn(
-          "hidden h-9 flex-1 justify-start gap-2 border-border/80 bg-muted/30 text-left font-normal text-muted-foreground shadow-sm hover:bg-muted/50 sm:inline-flex sm:max-w-xs lg:max-w-sm",
-          className,
-        )}
-      >
-        <SearchIcon className="size-4 shrink-0 opacity-70" aria-hidden />
-        <span className="truncate">Search pages…</span>
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        onClick={() => query.toggle()}
-        className="h-9 shrink-0 border-border/80 bg-muted/30 shadow-sm sm:hidden"
-        aria-label="Open command menu"
-      >
-        <SearchIcon className="size-4" aria-hidden />
-      </Button>
-    </div>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => query.toggle()}
+            className={cn(
+              "h-9 shrink-0 border-border/80 bg-muted/30 shadow-sm hover:bg-muted/50",
+              className,
+            )}
+            aria-label="Search pages and actions"
+          >
+            <SearchIcon className="size-4" aria-hidden />
+          </Button>
+        }
+      />
+      <TooltipContent side="bottom" align="end" sideOffset={6}>
+        Search pages · Cmd+K / Ctrl+K
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
