@@ -35,7 +35,7 @@ import {
   sanitizeDiscountPayload,
 } from "@/lib/discount-edit-helpers"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, ChevronDownIcon, Loader2Icon, RocketIcon, SaveIcon, Trash2Icon } from "lucide-react"
+import { CalendarIcon, ChevronDownIcon, Loader2Icon, RocketIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 function parseDraftDate(iso: string): Date | undefined {
@@ -85,7 +85,6 @@ export function DiscountDashboardEditSheet(props: {
   const [draft, setDraft] = React.useState<DiscountEditDraft | null>(null)
   const [storeSearch, setStoreSearch] = React.useState("")
   const [collectionSearch, setCollectionSearch] = React.useState("")
-  const [supabaseDraftTitle, setSupabaseDraftTitle] = React.useState("")
 
   React.useEffect(() => {
     if (!open || !row) {
@@ -95,12 +94,7 @@ export function DiscountDashboardEditSheet(props: {
     setDraft(rowToEditDraft(row, catalogStores))
     setStoreSearch("")
     setCollectionSearch("")
-    if (resumeEditDraftId) {
-      setSupabaseDraftTitle(initialSupabaseDraftTitle ?? "")
-    } else {
-      setSupabaseDraftTitle("")
-    }
-  }, [open, row, catalogStores, resumeEditDraftId, initialSupabaseDraftTitle])
+  }, [open, row, catalogStores])
 
   const filteredCatalogStores = React.useMemo(() => {
     const q = storeSearch.trim().toLowerCase()
@@ -176,49 +170,10 @@ export function DiscountDashboardEditSheet(props: {
     return `Edit: ${t}`.slice(0, 200)
   }
 
-  async function saveSupabaseDraft() {
-    const cleaned = buildPayloadForApi()
-    if (!cleaned || !row) return
-    const discountId = String(cleaned.id ?? getDiscountRowId(row))
-    if (!discountId) {
-      toast.error("Missing discount id")
-      return
-    }
-    const title =
-      supabaseDraftTitle.trim() || defaultSupabaseDraftTitle()
-
-    onSavingChange(true)
-    try {
-      if (resumeEditDraftId) {
-        const res = await fetch(`/api/discount-edit-drafts/${resumeEditDraftId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, payload: cleaned }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || "Could not save draft")
-        toast.success("Draft saved", { description: title })
-      } else {
-        const res = await fetch("/api/discount-edit-drafts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            discount_id: discountId,
-            payload: cleaned,
-          }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || "Could not save draft")
-        toast.success("Saved to Draft edits", {
-          description: "Open Draft edits in the sidebar when you’re ready to publish.",
-        })
-      }
-    } catch (e) {
-      toast.error("Could not save draft", { description: (e as Error).message })
-    } finally {
-      onSavingChange(false)
-    }
+  function draftListTitleForPublish(): string {
+    const fromProp = initialSupabaseDraftTitle?.trim()
+    if (fromProp) return fromProp.slice(0, 200)
+    return defaultSupabaseDraftTitle()
   }
 
   async function publishResumeDraft() {
@@ -226,7 +181,7 @@ export function DiscountDashboardEditSheet(props: {
     if (!cleaned || !resumeEditDraftId || !row) return
     onSavingChange(true)
     try {
-      const title = supabaseDraftTitle.trim() || defaultSupabaseDraftTitle()
+      const title = draftListTitleForPublish()
       const patchRes = await fetch(`/api/discount-edit-drafts/${resumeEditDraftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -358,8 +313,8 @@ export function DiscountDashboardEditSheet(props: {
           <SheetTitle>{resumeEditDraftId ? "Resume edit draft" : "Edit discount"}</SheetTitle>
           <SheetDescription>
             {resumeEditDraftId
-              ? "Save progress to this draft, or publish to push changes to Treez."
-              : "Update locations, collections, schedule, and repeat — or save as a draft to publish later."}
+              ? "Publish when you are ready to push these changes to Treez."
+              : "Update locations, collections, schedule, and repeat — same repeat controls as bulk create."}
           </SheetDescription>
         </SheetHeader>
 
@@ -378,23 +333,6 @@ export function DiscountDashboardEditSheet(props: {
           <>
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-5 px-4 py-5 md:px-6">
-                <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-                  <Label htmlFor="ed-draft-list-name" className="text-muted-foreground">
-                    Draft list name
-                  </Label>
-                  <Input
-                    id="ed-draft-list-name"
-                    placeholder={row ? defaultSupabaseDraftTitle() : "Edit: …"}
-                    value={supabaseDraftTitle}
-                    onChange={(e) => setSupabaseDraftTitle(e.target.value)}
-                    className="bg-background"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Shown in <span className="font-medium text-foreground">Draft edits</span>. Leave blank to use the
-                    default.
-                  </p>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="ed-title">Title</Label>
                   <Input
@@ -771,16 +709,6 @@ export function DiscountDashboardEditSheet(props: {
                     disabled={saving}
                   >
                     Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="gap-2"
-                    disabled={saving || catalogsLoading}
-                    onClick={() => void saveSupabaseDraft()}
-                  >
-                    <SaveIcon className="size-4" />
-                    Save as draft
                   </Button>
                   {resumeEditDraftId ? (
                     <Button
