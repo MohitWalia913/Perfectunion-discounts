@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -37,7 +38,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   return NextResponse.json({ draft: check.draft })
@@ -47,6 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -59,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   if (check.draft.published_at) {
@@ -99,6 +101,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -111,7 +114,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   const { error } = await admin.from("discount_edit_drafts").delete().eq("id", id)

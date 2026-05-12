@@ -8,6 +8,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -30,7 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   }
-  if (!row || row.created_by !== actor.id) {
+  if (!row || row.created_by !== uid) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
   if (row.published_at) {
