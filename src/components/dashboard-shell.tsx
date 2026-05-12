@@ -4,6 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import type { ProfileRow } from "@/lib/auth/types"
 import {
   CirclePlusIcon,
   FileStackIcon,
@@ -100,6 +101,28 @@ const MOBILE_NAV = [
   },
 ] as const
 
+/** Managers: home, sales promo, help only (matches restricted sidebar). */
+const MOBILE_NAV_MANAGER = [
+  {
+    href: "/dashboard",
+    label: "Discounts",
+    shortLabel: "Home",
+    icon: LayoutGridIcon,
+  },
+  {
+    href: "/dashboard/sales-promo",
+    label: "Sales Promo",
+    shortLabel: "Promo",
+    icon: MegaphoneIcon,
+  },
+  {
+    href: "/dashboard/help",
+    label: "Help",
+    shortLabel: "Help",
+    icon: HelpCircleIcon,
+  },
+] as const
+
 function navLinkActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") {
     return pathname === "/dashboard" || pathname === "/dashboard/"
@@ -152,6 +175,43 @@ export function DashboardShell({
   sidebarFooter?: React.ReactNode
 }) {
   const pathname = usePathname() || ""
+  const [accessProfile, setAccessProfile] = React.useState<ProfileRow | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/session/profile", {
+          credentials: "same-origin",
+          cache: "no-store",
+        })
+        const j = (await res.json()) as { ok?: boolean; profile?: ProfileRow | null }
+        if (!cancelled && j.ok && j.profile) setAccessProfile(j.profile)
+      } catch {
+        /* non-fatal */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isManager = accessProfile?.role === "manager"
+
+  const discountsNavItems = React.useMemo(
+    () => (isManager ? [SIDEBAR_NAV[0]] : [...SIDEBAR_NAV]),
+    [isManager],
+  )
+
+  const workspaceNavItems = React.useMemo(
+    () => (isManager ? [MORE_NAV[0]] : [...MORE_NAV]),
+    [isManager],
+  )
+
+  const mobileNavItems = React.useMemo(
+    () => (isManager ? MOBILE_NAV_MANAGER : MOBILE_NAV),
+    [isManager],
+  )
 
   const collapseForBulk =
     pathname === "/dashboard/discounts/bulk-upload" ||
@@ -166,7 +226,7 @@ export function DashboardShell({
   }, [collapseForBulk])
 
   return (
-    <DashboardKBar>
+    <DashboardKBar managerMode={isManager}>
       <SidebarProvider open={open} onOpenChange={setOpen}>
         <Sidebar collapsible="icon" variant="inset" className={SIDEBAR_SURFACE_CLASS}>
           <SidebarHeader className="border-b border-sidebar-border/80 p-3">
@@ -206,7 +266,7 @@ export function DashboardShell({
               <SidebarGroupLabel className={SECTION_LABEL_CLASS}>Discounts</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5">
-                  <NavMenuItems pathname={pathname} items={SIDEBAR_NAV} />
+                  <NavMenuItems pathname={pathname} items={discountsNavItems} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -215,7 +275,7 @@ export function DashboardShell({
               <SidebarGroupLabel className={SECTION_LABEL_CLASS}>Workspace</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5">
-                  <NavMenuItems pathname={pathname} items={MORE_NAV} />
+                  <NavMenuItems pathname={pathname} items={workspaceNavItems} />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -273,7 +333,7 @@ export function DashboardShell({
         aria-label="Primary mobile"
       >
         <div className="flex h-16 items-stretch justify-around px-1 pt-1">
-          {MOBILE_NAV.map(({ href, shortLabel, icon: Icon }) => {
+          {mobileNavItems.map(({ href, shortLabel, icon: Icon }) => {
             const active = navLinkActive(pathname, href)
             return (
               <Link

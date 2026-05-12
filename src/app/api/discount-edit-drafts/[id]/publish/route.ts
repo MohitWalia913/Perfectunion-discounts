@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
 import { formatTreezApiError, getTreezEnv, updateServiceDiscount } from "@/lib/treez"
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let admin
   try {

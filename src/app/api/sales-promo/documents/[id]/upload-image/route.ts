@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { canManageSalesPromo } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { userCanAccessSalesPromoDocument } from "@/lib/sales-promo/access"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
@@ -39,6 +40,10 @@ export async function POST(request: Request, ctx: RouteCtx) {
   const can = await userCanAccessSalesPromoDocument(admin, actor, documentId)
   if (!can) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
+  }
+
+  if (!canManageSalesPromo(actor)) {
+    return NextResponse.json({ ok: false, error: "Only admins can upload images" }, { status: 403 })
   }
 
   let form: FormData

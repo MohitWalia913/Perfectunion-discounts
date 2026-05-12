@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server"
 import { canCreateRole } from "@/lib/auth/permissions"
-import { getCurrentProfile } from "@/lib/auth/profile"
+import { getCurrentProfile, normalizeProfileRow } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
+import { attachPromoShareIds, syncManagerPromoShares } from "@/lib/manager-promo-shares"
+import { validateUuidList } from "@/lib/validate-promo-doc-ids"
+import { normalizeAndValidateManagerStoreNames } from "@/lib/validate-manager-stores"
 
 export async function GET() {
   const actor = await getCurrentProfile()
   if (!actor) {
     return NextResponse.json({ ok: false, error: "Unauthorized", me: null }, { status: 401 })
   }
-  if (!["master_admin", "admin", "manager"].includes(actor.role)) {
+  if (!["master_admin", "admin"].includes(actor.role)) {
     return NextResponse.json(
       { ok: false, error: "Forbidden", me: actor },
       { status: 403 },
@@ -36,7 +39,7 @@ export async function GET() {
 
   const { data: rows, error } = await admin
     .from("profiles")
-    .select("id,email,full_name,role,created_at")
+    .select("id,email,full_name,role,created_at,assigned_store_names")
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -51,10 +54,13 @@ export async function GET() {
     )
   }
 
+  const profiles = (rows ?? []).map((r) => normalizeProfileRow(r as Record<string, unknown>))
+  const withShares = await attachPromoShareIds(admin, profiles)
+
   return NextResponse.json({
     ok: true,
     me: actor,
-    users: rows ?? [],
+    users: withShares,
   })
 }
 
@@ -69,6 +75,8 @@ export async function POST(request: Request) {
     password?: string
     full_name?: string
     role?: unknown
+    assigned_store_names?: unknown
+    shared_sales_promo_document_ids?: unknown
   }
   try {
     body = await request.json()
@@ -110,6 +118,21 @@ export async function POST(request: Request) {
     )
   }
 
+  let assignedNames: string[] = []
+  if (targetRole === "manager") {
+    const v = await normalizeAndValidateManagerStoreNames(body.assigned_store_names)
+    if (!v.ok) {
+      return NextResponse.json({ ok: false, error: v.error }, { status: 400 })
+    }
+    assignedNames = v.names
+  }
+
+  const promoParse = validateUuidList(body.shared_sales_promo_document_ids)
+  if (!promoParse.ok) {
+    return NextResponse.json({ ok: false, error: promoParse.error }, { status: 400 })
+  }
+  const shareDocIds = targetRole === "manager" ? promoParse.ids : []
+
   let admin
   try {
     admin = createServiceRoleClient()
@@ -141,6 +164,7 @@ export async function POST(request: Request) {
       email,
       full_name: full_name || null,
       role: targetRole,
+      assigned_store_names: targetRole === "manager" ? assignedNames : [],
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId)
@@ -153,6 +177,18 @@ export async function POST(request: Request) {
     )
   }
 
+  if (targetRole === "manager" && shareDocIds.length) {
+    try {
+      await syncManagerPromoShares(admin, userId, shareDocIds)
+    } catch (e) {
+      await admin.auth.admin.deleteUser(userId)
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not attach promo shares" },
+        { status: 500 },
+      )
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     user: {
@@ -160,6 +196,7 @@ export async function POST(request: Request) {
       email,
       full_name: full_name || null,
       role: targetRole,
+      assigned_store_names: targetRole === "manager" ? assignedNames : [],
     },
   })
 }

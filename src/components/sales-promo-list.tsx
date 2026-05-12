@@ -168,7 +168,13 @@ export function SalesPromoList() {
                 <p className="mt-2">Create one to collaborate in real time.</p>
               </>
             ) : (
-              <p>Nothing has been shared with you yet.</p>
+              <>
+                <p className="font-medium text-foreground">No Sales Promo shared with you yet</p>
+                <p className="mt-2">
+                  When an admin shares a promo document with your account, it will show up here. You can open it in
+                  view-only mode.
+                </p>
+              </>
             )}
           </div>
         ) : (

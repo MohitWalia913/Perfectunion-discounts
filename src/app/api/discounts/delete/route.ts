@@ -1,7 +1,12 @@
 import { deleteServiceDiscountOrFallback, getTreezEnv } from "@/lib/treez"
 import { NextResponse } from "next/server"
+import { getCurrentProfile } from "@/lib/auth/profile"
+import { rejectIfManager } from "@/lib/auth/permissions"
 
 export async function POST(request: Request) {
+  const denied = rejectIfManager(await getCurrentProfile())
+  if (denied) return denied
+
   try {
     const body = await request.json()
     const { discountIds } = body as { discountIds: string[] }

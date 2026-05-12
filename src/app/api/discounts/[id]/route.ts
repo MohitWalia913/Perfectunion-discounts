@@ -1,10 +1,15 @@
 import { deleteServiceDiscountOrFallback, getTreezEnv } from "@/lib/treez"
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
+import { getCurrentProfile } from "@/lib/auth/profile"
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = rejectIfManager(await getCurrentProfile())
+  if (denied) return denied
+
   try {
     const { id } = await params
     

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
 
 export async function GET() {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -21,7 +22,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("bulk_discount_drafts")
     .select("id,title,rows,created_at,updated_at")
-    .eq("created_by", actor.id)
+    .eq("created_by", uid)
     .order("updated_at", { ascending: false })
 
   if (error) {
@@ -38,9 +39,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let body: { title?: unknown; rows?: unknown }
   try {
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     .insert({
       title,
       rows,
-      created_by: actor.id,
+      created_by: uid,
     })
     .select("id,title,rows,created_at,updated_at")
     .single()

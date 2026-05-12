@@ -5,13 +5,11 @@ import Link from "next/link"
 import { ActionTooltip } from "@/components/action-tooltip"
 import {
   ArrowUpRightIcon,
-  CircleHelpIcon,
   FileStackIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
   MailIcon,
   MegaphoneIcon,
-  SparklesIcon,
   UploadIcon,
   UsersIcon,
 } from "lucide-react"
@@ -123,36 +121,6 @@ export function DashboardHelpPage() {
       </div>
 
       <div className={cn(PAGE_MAX, "flex flex-1 flex-col gap-10 py-8 md:py-10 lg:py-11")}>
-        <section className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm md:p-7">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div className="space-y-1">
-              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-                <SparklesIcon className="size-5 text-primary" aria-hidden />
-                Get a faster answer
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Include these details in your email so we can resolve your issue without back-and-forth.
-              </p>
-            </div>
-          </div>
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              "What you were trying to do (e.g. bulk publish one row).",
-              "Any error text on screen or in the toast notification.",
-              "Rough time (and timezone) when it happened.",
-              "Which page or menu you used — a screenshot helps.",
-              "Your account email (never send passwords).",
-            ].map((t) => (
-              <li
-                key={t}
-                className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2.5 text-sm leading-snug text-muted-foreground"
-              >
-                {t}
-              </li>
-            ))}
-          </ul>
-        </section>
-
         <section>
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Shortcuts in this app
@@ -199,40 +167,6 @@ export function DashboardHelpPage() {
               Users
             </PageLink>
           </div>
-        </section>
-
-        <section
-          className="rounded-2xl border border-dashed border-primary/25 bg-primary/[0.03] px-5 py-6 md:px-7"
-        >
-          <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <CircleHelpIcon className="size-5 text-primary" aria-hidden />
-            Common questions
-          </h2>
-          <dl className="mt-4 space-y-4 text-sm">
-            <div>
-              <dt className="font-medium text-foreground">Where is the product documentation?</dt>
-              <dd className="mt-1 text-muted-foreground">
-                Use the header <strong className="text-foreground">Search pages</strong> command (
-                <kbd className="rounded border border-border bg-muted px-1">Cmd+K</kbd> /{" "}
-                <kbd className="rounded border border-border bg-muted px-1">Ctrl+K</kbd>
-                ) to open quick navigation. Your team may also share internal runbooks by email.
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-foreground">Who do I contact for access or login problems?</dt>
-              <dd className="mt-1 text-muted-foreground">
-                Email <strong className="text-foreground">{SUPPORT_EMAIL}</strong>. An admin on your side may
-                also need to adjust roles — we can coordinate once we know your account.
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium text-foreground">Do you offer phone support?</dt>
-              <dd className="mt-1 text-muted-foreground">
-                Primary support is by email so we can share links, screenshots, and follow-up clearly. If
-                your organization has a separate support agreement, mention it in your message.
-              </dd>
-            </div>
-          </dl>
         </section>
       </div>
     </div>

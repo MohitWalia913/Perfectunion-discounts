@@ -31,6 +31,32 @@ export async function updateSession(request: NextRequest) {
   const isApi = pathname.startsWith("/api")
   const isLogin = pathname === "/login"
 
+  if (
+    user &&
+    !isApi &&
+    pathname !== "/login" &&
+    (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))
+  ) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if ((prof?.role as string | undefined) === "manager") {
+      const blockedPrefixes = [
+        "/dashboard/discounts/bulk-upload",
+        "/dashboard/discounts/drafts",
+        "/dashboard/discounts/create",
+        "/dashboard/users",
+      ]
+      const hit = blockedPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+      if (hit) {
+        return NextResponse.redirect(new URL("/dashboard", request.url))
+      }
+    }
+  }
+
   if (user && isLogin) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }

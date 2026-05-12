@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
 
@@ -25,9 +26,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -40,7 +41,7 @@ export async function GET(
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   return NextResponse.json({ draft: check.draft })
@@ -51,9 +52,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -66,7 +67,7 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   let body: { title?: unknown; rows?: unknown }
@@ -103,9 +104,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -118,7 +119,7 @@ export async function DELETE(
   }
 
   const { id } = await params
-  const check = await assertOwnDraft(admin, id, actor.id)
+  const check = await assertOwnDraft(admin, id, uid)
   if (!check.ok) return check.response
 
   const { error } = await admin.from("bulk_discount_drafts").delete().eq("id", id)

@@ -541,10 +541,12 @@ function SalesPromoEditor({
   docId,
   initialContent,
   onSaveStatus,
+  readOnly = false,
 }: {
   docId: string
   initialContent: JSONContent
   onSaveStatus?: (s: "idle" | "saving" | "saved" | "error") => void
+  readOnly?: boolean
 }) {
   const saveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const editorRef = React.useRef<Editor | null>(null)
@@ -566,6 +568,7 @@ function SalesPromoEditor({
   const editor = useEditor({
     immediatelyRender: false,
     content: initialContent,
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
@@ -622,11 +625,16 @@ function SalesPromoEditor({
   })
 
   React.useEffect(() => {
+    if (!editor) return
+    editor.setEditable(!readOnly)
+  }, [editor, readOnly])
+
+  React.useEffect(() => {
     editorRef.current = editor
   }, [editor])
 
   React.useEffect(() => {
-    if (!editor) return
+    if (!editor || readOnly) return
 
     const scheduleSave = () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -661,7 +669,7 @@ function SalesPromoEditor({
       editor.off("update", scheduleSave)
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [docId, editor, relayStatus])
+  }, [docId, editor, relayStatus, readOnly])
 
   if (!editor) {
     return (
@@ -674,16 +682,18 @@ function SalesPromoEditor({
 
   return (
     <div className="relative flex min-h-[min(60vh,900px)] flex-col">
-      <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex min-h-10 items-stretch border-b backdrop-blur">
-        <div className="min-h-10 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-          <div className="flex h-full min-w-max items-center py-1 pr-1 pl-2 sm:pl-3 md:pl-4">
-            <PromoEditorToolbar editor={editor} docId={docId} />
+      {readOnly ? null : (
+        <div className="border-border/80 bg-background/80 supports-[backdrop-filter]:bg-background/70 sticky top-0 z-20 flex min-h-10 items-stretch border-b backdrop-blur">
+          <div className="min-h-10 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+            <div className="flex h-full min-w-max items-center py-1 pr-1 pl-2 sm:pl-3 md:pl-4">
+              <PromoEditorToolbar editor={editor} docId={docId} />
+            </div>
+          </div>
+          <div className="bg-background/95 flex min-h-10 w-[6.25rem] shrink-0 items-center justify-end border-l border-border/60 px-2">
+            <SaveStatusChip status={saveStatus} />
           </div>
         </div>
-        <div className="bg-background/95 flex min-h-10 w-[6.25rem] shrink-0 items-center justify-end border-l border-border/60 px-2">
-          <SaveStatusChip status={saveStatus} />
-        </div>
-      </div>
+      )}
       <EditorContent
         editor={editor}
         className={cn(
@@ -951,7 +961,7 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
               </div>
               <Input
                 value={title}
-                disabled={loading}
+                disabled={loading || !canManage}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={() => void saveTitle(title.trim() || "Untitled promo")}
                 className="focus-visible:ring-ring h-11 w-full max-w-full rounded-lg border border-transparent bg-muted/25 px-3 text-lg font-semibold tracking-tight shadow-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-offset-0 sm:text-xl md:max-w-[720px] md:text-2xl"
@@ -1009,6 +1019,7 @@ function PromoDocWorkspace({ docId }: { docId: string }) {
               <SalesPromoEditor
                 docId={docId}
                 initialContent={docContent}
+                readOnly={!canManage}
                 onSaveStatus={(s) => setHeaderSave(s)}
               />
             )}

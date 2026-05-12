@@ -166,6 +166,13 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
 
+  if (!canManageSalesPromo(actor)) {
+    return NextResponse.json(
+      { ok: false, error: "Only admins can edit promo documents" },
+      { status: 403 },
+    )
+  }
+
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }

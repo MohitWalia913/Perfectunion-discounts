@@ -16,6 +16,7 @@ import {
   readDiscountCache,
   writeDiscountCache,
 } from "@/lib/discount-cache"
+import type { ProfileRow } from "@/lib/auth/types"
 import { cn } from "@/lib/utils"
 import { RefreshCwIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -56,6 +57,7 @@ export function DiscountDashboardView() {
   const [showSkeleton, setShowSkeleton] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null)
+  const [sessionProfile, setSessionProfile] = React.useState<ProfileRow | null>(null)
   const mounted = React.useRef(false)
   const rowsRef = React.useRef(rows)
   rowsRef.current = rows
@@ -98,6 +100,25 @@ export function DiscountDashboardView() {
       if (manual) toast.error("Could not refresh discounts", { description: msg })
     } finally {
       if (manual) setRefreshing(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/session/profile", {
+          credentials: "same-origin",
+          cache: "no-store",
+        })
+        const j = (await res.json()) as { ok?: boolean; profile?: ProfileRow | null }
+        if (!cancelled && j.ok && j.profile) setSessionProfile(j.profile)
+      } catch {
+        /* session optional for skeleton */
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -147,6 +168,10 @@ export function DiscountDashboardView() {
     }
   }, [runFetch])
 
+  const isManager = sessionProfile?.role === "manager"
+  const managerStores = sessionProfile?.assigned_store_names ?? []
+  const managerMissingStores = isManager && managerStores.length === 0
+
   const subtitle =
     lastFetchedAt !== null && !showSkeleton ? (
       <p className="mt-2 text-xs text-muted-foreground">
@@ -181,11 +206,28 @@ export function DiscountDashboardView() {
             <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
               Discount manager
             </h1>
+            {isManager && managerStores.length > 0 ? (
+              <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Your locations: </span>
+                {managerStores.join(", ")}
+              </p>
+            ) : null}
             {!error && !showSkeleton ? subtitle : null}
           </div>
         </div>
 
-        {error ? (
+        {managerMissingStores ? (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-5 py-4 text-sm text-foreground"
+          >
+            <p className="font-medium text-amber-900 dark:text-amber-100">No store locations assigned</p>
+            <p className="mt-2 text-muted-foreground">
+              An admin must assign at least one store to your manager account on the Users page before discounts
+              appear here.
+            </p>
+          </div>
+        ) : error ? (
           <div
             role="alert"
             className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-4 text-sm text-destructive"
@@ -208,7 +250,11 @@ export function DiscountDashboardView() {
         ) : showSkeleton ? (
           <DiscountManagerSkeleton />
         ) : (
-          <DiscountManagerClient rows={rows} />
+          <DiscountManagerClient
+            rows={rows}
+            managerReadOnly={isManager}
+            managerStoreAllowlist={isManager ? managerStores : null}
+          />
         )}
       </div>
     </DashboardShell>

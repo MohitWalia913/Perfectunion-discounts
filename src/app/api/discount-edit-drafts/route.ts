@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
 
 export async function GET() {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let admin
   try {
@@ -33,9 +33,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let body: { title?: unknown; discount_id?: unknown; payload?: unknown }
   try {

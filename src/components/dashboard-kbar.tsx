@@ -78,11 +78,11 @@ function DashboardKBarResults() {
   )
 }
 
-function RegisterKBarActions() {
+function RegisterKBarActions({ managerMode }: { managerMode: boolean }) {
   const router = useRouter()
 
-  const actions = React.useMemo<Action[]>(
-    () => [
+  const actions = React.useMemo<Action[]>(() => {
+    const all: Action[] = [
       {
         id: "nav-discounts",
         name: "All discounts",
@@ -148,9 +148,14 @@ function RegisterKBarActions() {
         icon: <HelpCircleIcon aria-hidden />,
         perform: () => router.push("/dashboard/help"),
       },
-    ],
-    [router],
-  )
+    ]
+
+    if (managerMode) {
+      const keep = new Set(["nav-discounts", "nav-sales-promo", "nav-help"])
+      return all.filter((a) => keep.has(a.id))
+    }
+    return all
+  }, [router, managerMode])
 
   useRegisterActions(actions, [actions])
 
@@ -186,7 +191,13 @@ export function DashboardKBarTrigger({ className }: { className?: string }) {
   )
 }
 
-export function DashboardKBar({ children }: { children: React.ReactNode }) {
+export function DashboardKBar({
+  children,
+  managerMode = false,
+}: {
+  children: React.ReactNode
+  managerMode?: boolean
+}) {
   return (
     <KBarProvider
       options={{
@@ -194,7 +205,7 @@ export function DashboardKBar({ children }: { children: React.ReactNode }) {
         animations: { enterMs: 120, exitMs: 80 },
       }}
     >
-      <RegisterKBarActions />
+      <RegisterKBarActions managerMode={managerMode} />
       {children}
       <KBarPortal>
         <KBarPositioner className="fixed inset-0 z-[200] flex justify-center bg-foreground/25 p-4 pt-[14vh] backdrop-blur-[2px]">

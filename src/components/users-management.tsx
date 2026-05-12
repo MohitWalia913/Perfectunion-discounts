@@ -1,10 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { canCreateRole, canDeleteUser } from "@/lib/auth/permissions"
+import { canConfigureManagerAccess, canCreateRole, canDeleteUser } from "@/lib/auth/permissions"
 import type { AppRole, ProfileRow } from "@/lib/auth/types"
+import type { ProfileWithShares } from "@/lib/manager-promo-shares"
 import { Button } from "@/components/ui/button"
 import { ActionTooltip } from "@/components/action-tooltip"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
@@ -26,8 +29,10 @@ import {
 import { toast } from "sonner"
 import {
   Loader2Icon,
+  PencilIcon,
   PlusIcon,
   RefreshCwIcon,
+  SearchIcon,
   SparklesIcon,
   Trash2Icon,
 } from "lucide-react"
@@ -62,11 +67,30 @@ type UsersApiPayload = {
   ok?: boolean
   error?: string
   me?: ProfileRow | null
-  users?: ProfileRow[]
+  users?: ProfileWithShares[]
+}
+
+function parseStoreNamesFromApiPayload(body: unknown): string[] {
+  let storesData: unknown = body
+  if (storesData && typeof storesData === "object" && !Array.isArray(storesData)) {
+    const o = storesData as Record<string, unknown>
+    storesData = o.data ?? o.entities ?? o.results ?? []
+  }
+  if (!Array.isArray(storesData)) return []
+  const names = new Set<string>()
+  for (const s of storesData) {
+    if (!s || typeof s !== "object") continue
+    const r = s as Record<string, unknown>
+    const name = String(
+      r.name ?? r.displayName ?? r.entityName ?? r.organizationEntityName ?? "",
+    ).trim()
+    if (name) names.add(name)
+  }
+  return [...names].sort((a, b) => a.localeCompare(b))
 }
 
 export function UsersManagement() {
-  const [users, setUsers] = React.useState<ProfileRow[]>([])
+  const [users, setUsers] = React.useState<ProfileWithShares[]>([])
   const [me, setMe] = React.useState<ProfileRow | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -78,6 +102,24 @@ export function UsersManagement() {
   const [password, setPassword] = React.useState("")
   const [fullName, setFullName] = React.useState("")
   const [role, setRole] = React.useState<"admin" | "manager">("manager")
+
+  const [orgStoreNames, setOrgStoreNames] = React.useState<string[]>([])
+  const [storesLoading, setStoresLoading] = React.useState(false)
+  const [storeSearchCreate, setStoreSearchCreate] = React.useState("")
+  const [storeSearchEdit, setStoreSearchEdit] = React.useState("")
+  const [promoDocs, setPromoDocs] = React.useState<{ id: string; title: string }[]>([])
+  const [promoLoading, setPromoLoading] = React.useState(false)
+  const [promoSearchCreate, setPromoSearchCreate] = React.useState("")
+  const [promoSearchEdit, setPromoSearchEdit] = React.useState("")
+
+  const [createStoreSelected, setCreateStoreSelected] = React.useState<Set<string>>(() => new Set())
+  const [createPromoSelected, setCreatePromoSelected] = React.useState<Set<string>>(() => new Set())
+
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [editTarget, setEditTarget] = React.useState<ProfileWithShares | null>(null)
+  const [editStores, setEditStores] = React.useState<Set<string>>(() => new Set())
+  const [editPromos, setEditPromos] = React.useState<Set<string>>(() => new Set())
+  const [editSaving, setEditSaving] = React.useState(false)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -142,6 +184,48 @@ export function UsersManagement() {
     void load()
   }, [load])
 
+  const loadCatalogs = React.useCallback(async () => {
+    setStoresLoading(true)
+    setPromoLoading(true)
+    try {
+      const [storesRes, promosRes] = await Promise.all([
+        fetch("/api/stores", { credentials: "same-origin", cache: "no-store" }),
+        fetch("/api/sales-promo/documents", { credentials: "same-origin", cache: "no-store" }),
+      ])
+      if (storesRes.ok) {
+        const raw = await storesRes.json()
+        setOrgStoreNames(parseStoreNamesFromApiPayload(raw))
+      }
+      if (promosRes.ok) {
+        const pj = (await promosRes.json()) as {
+          ok?: boolean
+          documents?: { id: string; title: string }[]
+        }
+        if (pj.ok && Array.isArray(pj.documents)) {
+          setPromoDocs(pj.documents.map((d) => ({ id: d.id, title: d.title })))
+        }
+      }
+    } catch {
+      toast.error("Could not load store or promo lists")
+    } finally {
+      setStoresLoading(false)
+      setPromoLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (me && ["master_admin", "admin"].includes(me.role)) {
+      void loadCatalogs()
+    }
+  }, [me, loadCatalogs])
+
+  React.useEffect(() => {
+    if (role !== "manager") {
+      setCreateStoreSelected(new Set())
+      setCreatePromoSelected(new Set())
+    }
+  }, [role])
+
   const creatableRoles = React.useMemo((): Array<"admin" | "manager"> => {
     if (!me) return []
     const opts: Array<"admin" | "manager"> = []
@@ -158,6 +242,10 @@ export function UsersManagement() {
     setFullName("")
     const first = creatableRoles.includes("manager") ? "manager" : "admin"
     setRole(first)
+    setCreateStoreSelected(new Set())
+    setCreatePromoSelected(new Set())
+    setStoreSearchCreate("")
+    setPromoSearchCreate("")
     setDialogOpen(true)
   }
 
@@ -174,6 +262,10 @@ export function UsersManagement() {
       toast.error("You cannot create users with this role")
       return
     }
+    if (role === "manager" && createStoreSelected.size === 0) {
+      toast.error("Select at least one store location for a manager")
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch("/api/users", {
@@ -185,6 +277,10 @@ export function UsersManagement() {
           password,
           full_name: fullName.trim() || undefined,
           role,
+          assigned_store_names:
+            role === "manager" ? Array.from(createStoreSelected).sort((a, b) => a.localeCompare(b)) : undefined,
+          shared_sales_promo_document_ids:
+            role === "manager" ? Array.from(createPromoSelected) : undefined,
         }),
       })
       const data = await res.json()
@@ -205,7 +301,7 @@ export function UsersManagement() {
     }
   }
 
-  const handleDelete = async (row: ProfileRow) => {
+  const handleDelete = async (row: ProfileWithShares) => {
     if (!me) return
     if (!canDeleteUser(me, row)) return
     if (!confirm(`Remove access for ${row.email ?? row.id}?`)) return
@@ -228,6 +324,74 @@ export function UsersManagement() {
       setDeletingId(null)
     }
   }
+
+  const openEditManager = (row: ProfileWithShares) => {
+    if (!me || !canConfigureManagerAccess(me, row)) return
+    setEditTarget(row)
+    setEditStores(new Set(row.assigned_store_names ?? []))
+    setEditPromos(new Set(row.shared_sales_promo_document_ids ?? []))
+    setStoreSearchEdit("")
+    setPromoSearchEdit("")
+    setEditOpen(true)
+  }
+
+  const saveEditManager = async () => {
+    if (!me || !editTarget) return
+    if (!canConfigureManagerAccess(me, editTarget)) return
+    if (editStores.size === 0) {
+      toast.error("Select at least one store location")
+      return
+    }
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/users/${editTarget.id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assigned_store_names: Array.from(editStores).sort((a, b) => a.localeCompare(b)),
+          shared_sales_promo_document_ids: Array.from(editPromos),
+        }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) {
+        toast.error(data.error ?? "Update failed")
+        return
+      }
+      toast.success("Manager assignments updated")
+      setEditOpen(false)
+      setEditTarget(null)
+      void load()
+    } catch {
+      toast.error("Update failed")
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const filteredStoresCreate = React.useMemo(() => {
+    const q = storeSearchCreate.trim().toLowerCase()
+    if (!q) return orgStoreNames
+    return orgStoreNames.filter((n) => n.toLowerCase().includes(q))
+  }, [orgStoreNames, storeSearchCreate])
+
+  const filteredStoresEdit = React.useMemo(() => {
+    const q = storeSearchEdit.trim().toLowerCase()
+    if (!q) return orgStoreNames
+    return orgStoreNames.filter((n) => n.toLowerCase().includes(q))
+  }, [orgStoreNames, storeSearchEdit])
+
+  const filteredPromosCreate = React.useMemo(() => {
+    const q = promoSearchCreate.trim().toLowerCase()
+    if (!q) return promoDocs
+    return promoDocs.filter((d) => d.title.toLowerCase().includes(q) || d.id.toLowerCase().includes(q))
+  }, [promoDocs, promoSearchCreate])
+
+  const filteredPromosEdit = React.useMemo(() => {
+    const q = promoSearchEdit.trim().toLowerCase()
+    if (!q) return promoDocs
+    return promoDocs.filter((d) => d.title.toLowerCase().includes(q) || d.id.toLowerCase().includes(q))
+  }, [promoDocs, promoSearchEdit])
 
   if (loading && me === null && !loadError) {
     return (
@@ -275,9 +439,10 @@ export function UsersManagement() {
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             Invite teammates with an <strong className="font-medium text-foreground">Admin</strong> or{" "}
             <strong className="font-medium text-foreground">Manager</strong> role. New accounts are{" "}
-            <strong className="font-medium text-foreground">confirmed automatically</strong> so they can
-            sign in right away. Managers can only view this list; admins can remove managers; master
-            admin can manage admins and managers.
+            <strong className="font-medium text-foreground">confirmed automatically</strong> so they can sign in
+            right away. <strong className="font-medium text-foreground">Managers</strong> must be assigned one or
+            more store locations and optionally Sales Promo documents; they have a read-only dashboard for those
+            stores. Master admin can remove admins and managers; admins can remove managers.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -305,8 +470,6 @@ export function UsersManagement() {
                 Add user
               </Button>
             </ActionTooltip>
-          ) : me?.role === "manager" ? (
-            <span className="text-xs text-muted-foreground">View only</span>
           ) : null}
         </div>
       </div>
@@ -337,14 +500,15 @@ export function UsersManagement() {
               <TableHead>Email</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead className="min-w-[140px]">Stores</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
+              <TableHead className="w-28 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                   {loadError && me
                     ? "No rows loaded. Fix the error above or add a user."
                     : canInvite
@@ -355,6 +519,7 @@ export function UsersManagement() {
             ) : (
               users.map((u) => {
                 const canDel = me ? canDeleteUser(me, u) : false
+                const canEditMgr = me ? canConfigureManagerAccess(me, u) : false
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.email ?? "—"}</TableCell>
@@ -373,6 +538,17 @@ export function UsersManagement() {
                         {roleLabel(u.role)}
                       </span>
                     </TableCell>
+                    <TableCell className="max-w-[200px] text-xs text-muted-foreground">
+                      {u.role === "manager" && (u.assigned_store_names?.length ?? 0) > 0 ? (
+                        <span className="line-clamp-2" title={u.assigned_store_names!.join(", ")}>
+                          {u.assigned_store_names!.join(", ")}
+                        </span>
+                      ) : u.role === "manager" ? (
+                        "—"
+                      ) : (
+                        <span className="text-muted-foreground/70">n/a</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(u.created_at).toLocaleDateString(undefined, {
                         month: "short",
@@ -381,26 +557,42 @@ export function UsersManagement() {
                       })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {canDel ? (
-                        <ActionTooltip label={`Remove ${u.email ?? "this user"} from the workspace (irreversible).`} side="left">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            disabled={deletingId === u.id}
-                            onClick={() => void handleDelete(u)}
-                          >
-                            {deletingId === u.id ? (
-                              <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                            ) : (
-                              <Trash2Icon className="size-4" aria-hidden />
-                            )}
-                          </Button>
-                        </ActionTooltip>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex items-center justify-end gap-0.5">
+                        {canEditMgr ? (
+                          <ActionTooltip label="Assign stores and Sales Promo document access." side="left">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-foreground"
+                              onClick={() => openEditManager(u)}
+                            >
+                              <PencilIcon className="size-4" aria-hidden />
+                            </Button>
+                          </ActionTooltip>
+                        ) : null}
+                        {canDel ? (
+                          <ActionTooltip label={`Remove ${u.email ?? "this user"} from the workspace (irreversible).`} side="left">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              disabled={deletingId === u.id}
+                              onClick={() => void handleDelete(u)}
+                            >
+                              {deletingId === u.id ? (
+                                <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                              ) : (
+                                <Trash2Icon className="size-4" aria-hidden />
+                              )}
+                            </Button>
+                          </ActionTooltip>
+                        ) : null}
+                        {!canEditMgr && !canDel ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -411,7 +603,7 @@ export function UsersManagement() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add user</DialogTitle>
             <DialogDescription>
@@ -496,6 +688,123 @@ export function UsersManagement() {
                 ))}
               </select>
             </div>
+            {role === "manager" ? (
+              <>
+                <div className="space-y-2 border-t border-border/60 pt-4">
+                  <Label>Store locations (required)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Same list as the discount dashboard location filter. This manager only sees discounts that include
+                    at least one of these stores.
+                  </p>
+                  <div className="relative">
+                    <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="h-9 pl-9 text-sm"
+                      placeholder="Search stores…"
+                      value={storeSearchCreate}
+                      onChange={(e) => setStoreSearchCreate(e.target.value)}
+                      disabled={storesLoading}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={storesLoading}
+                      onClick={() => setCreateStoreSelected(new Set(filteredStoresCreate))}
+                    >
+                      Select visible
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={storesLoading}
+                      onClick={() => setCreateStoreSelected(new Set())}
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-48 rounded-md border border-border/80 p-2">
+                    {storesLoading ? (
+                      <p className="py-8 text-center text-xs text-muted-foreground">Loading stores…</p>
+                    ) : filteredStoresCreate.length === 0 ? (
+                      <p className="py-8 text-center text-xs text-muted-foreground">No stores match</p>
+                    ) : (
+                      <div className="space-y-1 pr-2">
+                        {filteredStoresCreate.map((name) => (
+                          <label
+                            key={name}
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/70"
+                          >
+                            <Checkbox
+                              checked={createStoreSelected.has(name)}
+                              onCheckedChange={(v) => {
+                                setCreateStoreSelected((prev) => {
+                                  const next = new Set(prev)
+                                  if (v === true) next.add(name)
+                                  else next.delete(name)
+                                  return next
+                                })
+                              }}
+                            />
+                            <span className="text-sm leading-tight">{name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sales Promo access (optional)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Managers can open shared documents in view-only mode from Sales Promo.
+                  </p>
+                  <div className="relative">
+                    <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="h-9 pl-9 text-sm"
+                      placeholder="Search documents…"
+                      value={promoSearchCreate}
+                      onChange={(e) => setPromoSearchCreate(e.target.value)}
+                      disabled={promoLoading}
+                    />
+                  </div>
+                  <ScrollArea className="h-36 rounded-md border border-border/80 p-2">
+                    {promoLoading ? (
+                      <p className="py-6 text-center text-xs text-muted-foreground">Loading documents…</p>
+                    ) : filteredPromosCreate.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-muted-foreground">No documents</p>
+                    ) : (
+                      <div className="space-y-1 pr-2">
+                        {filteredPromosCreate.map((d) => (
+                          <label
+                            key={d.id}
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/70"
+                          >
+                            <Checkbox
+                              checked={createPromoSelected.has(d.id)}
+                              onCheckedChange={(v) => {
+                                setCreatePromoSelected((prev) => {
+                                  const next = new Set(prev)
+                                  if (v === true) next.add(d.id)
+                                  else next.delete(d.id)
+                                  return next
+                                })
+                              }}
+                            />
+                            <span className="text-sm leading-tight">{d.title}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+              </>
+            ) : null}
           </div>
           <DialogFooter>
             <ActionTooltip label="Close without creating a user." side="top">
@@ -520,6 +829,156 @@ export function UsersManagement() {
                 )}
               </Button>
             </ActionTooltip>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(o) => {
+          setEditOpen(o)
+          if (!o) setEditTarget(null)
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit manager access</DialogTitle>
+            <DialogDescription>
+              {editTarget
+                ? `Assign stores and optional Sales Promo shares for ${editTarget.email ?? editTarget.id}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {editTarget ? (
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label>Store locations</Label>
+                <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-9 pl-9 text-sm"
+                    placeholder="Search stores…"
+                    value={storeSearchEdit}
+                    onChange={(e) => setStoreSearchEdit(e.target.value)}
+                    disabled={storesLoading}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={storesLoading}
+                    onClick={() => setEditStores(new Set(filteredStoresEdit))}
+                  >
+                    Select visible
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={storesLoading}
+                    onClick={() => setEditStores(new Set())}
+                  >
+                    Clear all
+                  </Button>
+                </div>
+                <ScrollArea className="h-48 rounded-md border border-border/80 p-2">
+                  {storesLoading ? (
+                    <p className="py-8 text-center text-xs text-muted-foreground">Loading stores…</p>
+                  ) : filteredStoresEdit.length === 0 ? (
+                    <p className="py-8 text-center text-xs text-muted-foreground">No stores match</p>
+                  ) : (
+                    <div className="space-y-1 pr-2">
+                      {filteredStoresEdit.map((name) => (
+                        <label
+                          key={name}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/70"
+                        >
+                          <Checkbox
+                            checked={editStores.has(name)}
+                            onCheckedChange={(v) => {
+                              setEditStores((prev) => {
+                                const next = new Set(prev)
+                                if (v === true) next.add(name)
+                                else next.delete(name)
+                                return next
+                              })
+                            }}
+                          />
+                          <span className="text-sm leading-tight">{name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+              <div className="space-y-2">
+                <Label>Sales Promo access</Label>
+                <p className="text-xs text-muted-foreground">Choose which promo documents this manager may open.</p>
+                <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-9 pl-9 text-sm"
+                    placeholder="Search documents…"
+                    value={promoSearchEdit}
+                    onChange={(e) => setPromoSearchEdit(e.target.value)}
+                    disabled={promoLoading}
+                  />
+                </div>
+                <ScrollArea className="h-36 rounded-md border border-border/80 p-2">
+                  {promoLoading ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">Loading documents…</p>
+                  ) : filteredPromosEdit.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">No documents</p>
+                  ) : (
+                    <div className="space-y-1 pr-2">
+                      {filteredPromosEdit.map((d) => (
+                        <label
+                          key={d.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/70"
+                        >
+                          <Checkbox
+                            checked={editPromos.has(d.id)}
+                            onCheckedChange={(v) => {
+                              setEditPromos((prev) => {
+                                const next = new Set(prev)
+                                if (v === true) next.add(d.id)
+                                else next.delete(d.id)
+                                return next
+                              })
+                            }}
+                          />
+                          <span className="text-sm leading-tight">{d.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#1A1E26] text-white hover:bg-[#1A1E26]/90"
+              disabled={editSaving || !editTarget}
+              onClick={() => void saveEditManager()}
+            >
+              {editSaving ? (
+                <>
+                  <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                  Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

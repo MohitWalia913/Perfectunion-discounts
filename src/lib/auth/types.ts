@@ -6,4 +6,6 @@ export type ProfileRow = {
   full_name: string | null
   role: AppRole
   created_at: string
+  /** Treez store names; meaningful for managers (discount + assignment UI). */
+  assigned_store_names: string[]
 }

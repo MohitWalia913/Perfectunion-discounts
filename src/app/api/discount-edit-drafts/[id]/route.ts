@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
 
@@ -22,9 +23,8 @@ async function assertOwnDraft(
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let admin
   try {
@@ -45,9 +45,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let admin
   try {
@@ -98,9 +97,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
 
   let admin
   try {

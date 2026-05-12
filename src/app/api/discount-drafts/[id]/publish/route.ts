@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { rejectIfManager } from "@/lib/auth/permissions"
 import { getCurrentProfile } from "@/lib/auth/profile"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import {
@@ -17,9 +18,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const actor = await getCurrentProfile()
-  if (!actor) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const denied = rejectIfManager(actor)
+  if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -42,7 +43,7 @@ export async function POST(
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   }
-  if (!draftRow || draftRow.created_by !== actor.id) {
+  if (!draftRow || draftRow.created_by !== uid) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 

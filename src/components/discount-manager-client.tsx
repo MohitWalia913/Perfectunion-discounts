@@ -275,7 +275,25 @@ function DiscountFilterPopover({
   )
 }
 
-export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
+export function DiscountManagerClient({
+  rows: rowsProp,
+  managerReadOnly = false,
+  managerStoreAllowlist = null,
+}: {
+  rows: DiscountRow[]
+  managerReadOnly?: boolean
+  managerStoreAllowlist?: string[] | null
+}) {
+  const rows = React.useMemo(() => {
+    if (!managerStoreAllowlist?.length) return rowsProp
+    const allow = new Set(managerStoreAllowlist)
+    return rowsProp.filter((r) => {
+      const names = getStoreNamesFromRow(r)
+      if (!names.length) return false
+      return names.some((n) => allow.has(n))
+    })
+  }, [rowsProp, managerStoreAllowlist])
+
   const [page, setPage] = React.useState(1)
 
   const [includeActive, setIncludeActive] = React.useState(true)
@@ -290,12 +308,15 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
   const [storesLoading, setStoresLoading] = React.useState(false)
   const [storeSearchQuery, setStoreSearchQuery] = React.useState("")
   const allStores = React.useMemo(() => {
+    if (managerStoreAllowlist?.length) {
+      return [...managerStoreAllowlist].sort((a, b) => a.localeCompare(b))
+    }
     if (storeEntities.length > 0) {
       const names = [...new Set(storeEntities.map((s) => s.name.trim()).filter(Boolean))]
       return names.sort((a, b) => a.localeCompare(b))
     }
     return collectAllStoreNames(percentRows)
-  }, [storeEntities, percentRows])
+  }, [managerStoreAllowlist, storeEntities, percentRows])
   const [selectedStores, setSelectedStores] = React.useState<Set<string>>(() => new Set())
 
   const [catalogCollections, setCatalogCollections] = React.useState<CollectionEntityDraft[]>([])
@@ -681,11 +702,13 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           <div className="min-w-0 space-y-1">
             <h2 className="text-base font-semibold tracking-tight text-foreground">Percent discounts</h2>
             <p className="text-xs text-muted-foreground">
-              Defaults to active offers. Include inactive to see archived. Only percent-type discounts are listed.
+              {managerReadOnly
+                ? "View only for your assigned store locations. Editing, drafts, and bulk tools are disabled."
+                : "Defaults to active offers. Include inactive to see archived. Only percent-type discounts are listed."}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {selectedDiscounts.size > 0 && (
+            {!managerReadOnly && selectedDiscounts.size > 0 && (
               <ActionTooltip label="Open the edit panel for the first selected discount. After saving, select another row to continue." side="bottom">
                 <Button
                   variant="outline"
@@ -990,31 +1013,33 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           <table className="w-full min-w-[720px]">
             <thead className="border-b border-border bg-muted/50">
               <tr>
-                <th className="px-2 py-2 text-left align-middle">
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span className="inline-flex cursor-default items-center p-0.5">
-                          <Checkbox
-                            checked={
-                              pageRows.length > 0 &&
-                              pageRows.every((r) => {
-                                const rid = getDiscountRowId(r)
-                                return rid && selectedDiscounts.has(rid)
-                              })
-                            }
-                            onCheckedChange={handleSelectAll}
-                            aria-label="Select all on this page"
-                            className="border-input"
-                          />
-                        </span>
-                      }
-                    />
-                    <TooltipContent side="top" align="start" sideOffset={6} className="max-w-xs text-left">
-                      Select or clear every discount on this page for bulk edit.
-                    </TooltipContent>
-                  </Tooltip>
-                </th>
+                {!managerReadOnly ? (
+                  <th className="px-2 py-2 text-left align-middle">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span className="inline-flex cursor-default items-center p-0.5">
+                            <Checkbox
+                              checked={
+                                pageRows.length > 0 &&
+                                pageRows.every((r) => {
+                                  const rid = getDiscountRowId(r)
+                                  return rid && selectedDiscounts.has(rid)
+                                })
+                              }
+                              onCheckedChange={handleSelectAll}
+                              aria-label="Select all on this page"
+                              className="border-input"
+                            />
+                          </span>
+                        }
+                      />
+                      <TooltipContent side="top" align="start" sideOffset={6} className="max-w-xs text-left">
+                        Select or clear every discount on this page for bulk edit.
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                ) : null}
                 <th className="min-w-[28%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Title
                 </th>
@@ -1027,16 +1052,18 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                 <th className="min-w-[18%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Start / End
                 </th>
-                <th className="w-24 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Edit
-                </th>
+                {!managerReadOnly ? (
+                  <th className="w-24 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Edit
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {pageRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={managerReadOnly ? 4 : 6}
                     className="px-2 py-12 text-center text-sm text-muted-foreground"
                   >
                     No discounts for this filter.
@@ -1050,16 +1077,18 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
 
                   return (
                     <tr key={id} className="transition-colors hover:bg-muted/30">
-                      <td className="px-2 py-2 align-middle">
-                        <Checkbox
-                          checked={selectedDiscounts.has(id)}
-                          onCheckedChange={(checked) =>
-                            handleSelectDiscount(id, checked === true)
-                          }
-                          aria-label={`Select discount ${title}`}
-                          className="border-input"
-                        />
-                      </td>
+                      {!managerReadOnly ? (
+                        <td className="px-2 py-2 align-middle">
+                          <Checkbox
+                            checked={selectedDiscounts.has(id)}
+                            onCheckedChange={(checked) =>
+                              handleSelectDiscount(id, checked === true)
+                            }
+                            aria-label={`Select discount ${title}`}
+                            className="border-input"
+                          />
+                        </td>
+                      ) : null}
                       <td className="px-2 py-2 align-middle">
                         <span className="block truncate text-sm font-medium text-foreground">
                           {title}
@@ -1078,22 +1107,24 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
                       <td className="px-2 py-2 align-middle">
                         <ScheduleDatesCell row={row} />
                       </td>
-                      <td className="px-2 py-2 align-middle">
-                        <div className="flex items-center justify-center gap-1">
-                          <ActionTooltip label="Edit this discount in Treez from the side panel." side="left">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-8 hover:bg-muted/80 hover:text-primary"
-                              disabled={sheetSaving}
-                              onClick={() => openEditSheet(row)}
-                            >
-                              <Edit2Icon className="size-3.5" />
-                            </Button>
-                          </ActionTooltip>
-                        </div>
-                      </td>
+                      {!managerReadOnly ? (
+                        <td className="px-2 py-2 align-middle">
+                          <div className="flex items-center justify-center gap-1">
+                            <ActionTooltip label="Edit this discount in Treez from the side panel." side="left">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-8 hover:bg-muted/80 hover:text-primary"
+                                disabled={sheetSaving}
+                                onClick={() => openEditSheet(row)}
+                              >
+                                <Edit2Icon className="size-3.5" />
+                              </Button>
+                            </ActionTooltip>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   )
                 })
@@ -1136,26 +1167,29 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
         </div>
       </div>
 
-      <DiscountDashboardEditSheet
-        open={editSheetOpen}
-        onOpenChange={setEditSheetOpen}
-        row={sheetRow}
-        catalogStores={storeEntities}
-        catalogCollections={catalogCollections}
-        catalogsLoading={storesLoading || collectionsLoading}
-        saving={sheetSaving}
-        onSavingChange={setSheetSaving}
-        onRequestDelete={
-          sheetRow
-            ? () => {
-                handleDeleteClick(sheetRow)
-                setEditSheetOpen(false)
-              }
-            : undefined
-        }
-      />
+      {managerReadOnly ? null : (
+        <DiscountDashboardEditSheet
+          open={editSheetOpen}
+          onOpenChange={setEditSheetOpen}
+          row={sheetRow}
+          catalogStores={storeEntities}
+          catalogCollections={catalogCollections}
+          catalogsLoading={storesLoading || collectionsLoading}
+          saving={sheetSaving}
+          onSavingChange={setSheetSaving}
+          onRequestDelete={
+            sheetRow
+              ? () => {
+                  handleDeleteClick(sheetRow)
+                  setEditSheetOpen(false)
+                }
+              : undefined
+          }
+        />
+      )}
 
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+      {managerReadOnly ? null : (
+        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
@@ -1213,6 +1247,7 @@ export function DiscountManagerClient({ rows }: { rows: DiscountRow[] }) {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

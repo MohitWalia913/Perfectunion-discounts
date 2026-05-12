@@ -18,11 +18,11 @@ export async function getProfileForUser(
   const db = client ?? createServiceRoleClient()
   const { data, error } = await db
     .from("profiles")
-    .select("id,email,full_name,role,created_at")
+    .select("id,email,full_name,role,created_at,assigned_store_names")
     .eq("id", userId)
     .maybeSingle()
   if (error || !data) return null
-  return data as ProfileRow
+  return normalizeProfileRow(data)
 }
 
 /** Current user’s profile via the logged-in session + RLS (no service role key). */
@@ -34,11 +34,27 @@ export async function getSessionProfile(): Promise<ProfileRow | null> {
   if (!user) return null
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,full_name,role,created_at")
+    .select("id,email,full_name,role,created_at,assigned_store_names")
     .eq("id", user.id)
     .maybeSingle()
   if (error || !data) return null
-  return data as ProfileRow
+  return normalizeProfileRow(data)
+}
+
+export function normalizeProfileRow(data: Record<string, unknown>): ProfileRow {
+  const names = data.assigned_store_names
+  const assigned_store_names = Array.isArray(names)
+    ? names.map((x) => String(x ?? "").trim()).filter(Boolean)
+    : []
+  return {
+    id: String(data.id),
+    email: data.email === null || data.email === undefined ? null : String(data.email),
+    full_name:
+      data.full_name === null || data.full_name === undefined ? null : String(data.full_name),
+    role: data.role as ProfileRow["role"],
+    created_at: String(data.created_at ?? ""),
+    assigned_store_names,
+  }
 }
 
 export async function getCurrentProfile(): Promise<ProfileRow | null> {
