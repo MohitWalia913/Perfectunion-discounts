@@ -47,6 +47,7 @@ export async function updateSession(request: NextRequest) {
       const blockedPrefixes = [
         "/dashboard/discounts/bulk-upload",
         "/dashboard/discounts/drafts",
+        "/dashboard/discounts/edit-drafts",
         "/dashboard/discounts/create",
         "/dashboard/users",
       ]
