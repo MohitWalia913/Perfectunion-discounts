@@ -12,6 +12,7 @@ import { Color, TextStyle } from "@tiptap/extension-text-style"
 import TextAlign from "@tiptap/extension-text-align"
 import TaskList from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
+import Underline from "@tiptap/extension-underline"
 import { TableKit } from "@tiptap/extension-table/kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,6 +57,7 @@ import {
 import { toast } from "sonner"
 import type { ProfileRow } from "@/lib/auth/types"
 import { cn } from "@/lib/utils"
+import { sanitizeRichPasteHtml } from "@/lib/tiptap-paste-html"
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [] }
 
@@ -76,21 +78,6 @@ function isDocJson(v: unknown): v is JSONContent {
 
 function normalizeDocContent(raw: unknown): JSONContent {
   return isDocJson(raw) ? raw : EMPTY_DOC
-}
-
-/** Strip Docs scaffolding and normalize tags so ProseMirror can preserve tables, lists, and marks. */
-function cleanupGoogleHtml(html: string): string {
-  let h = html
-  const bodyMatch = h.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
-  if (bodyMatch) h = bodyMatch[1] ?? h
-  h = h.replace(/<!--[\s\S]*?-->/g, "")
-  h = h.replace(/<style[\s\S]*?<\/style>/gi, "")
-  h = h.replace(/<meta[^>]*>/gi, "")
-  h = h.replace(/<\s*b\b(?=[\s>])/gi, "<strong")
-  h = h.replace(/<\/\s*b\s*>/gi, "</strong>")
-  h = h.replace(/<\s*i\b(?=[\s>])/gi, "<em")
-  h = h.replace(/<\/\s*i\s*>/gi, "</em>")
-  return h
 }
 
 async function uploadPromoImage(docId: string, file: File): Promise<string> {
@@ -580,6 +567,7 @@ function SalesPromoEditor({
       }),
       Placeholder.configure({ placeholder: "Start writing your promo…" }),
       Highlight.configure({ multicolor: true }),
+      Underline,
       Image.configure({
         allowBase64: true,
         HTMLAttributes: { class: "rounded-md border border-border" },
@@ -590,7 +578,7 @@ function SalesPromoEditor({
     ],
     editorProps: {
       transformPastedHTML(html) {
-        return cleanupGoogleHtml(html)
+        return sanitizeRichPasteHtml(html)
       },
       handlePaste(_view, event) {
         const ed = editorRef.current
