@@ -7,6 +7,7 @@ export async function GET() {
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let admin
   try {
@@ -21,7 +22,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("discount_edit_drafts")
     .select("id,title,discount_id,payload,published_at,created_at,updated_at")
-    .eq("created_by", actor.id)
+    .eq("created_by", uid)
     .order("updated_at", { ascending: false })
 
   if (error) {
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
   const actor = await getCurrentProfile()
   const denied = rejectIfManager(actor)
   if (denied) return denied
+  const uid = actor!.id
 
   let body: { title?: unknown; discount_id?: unknown; payload?: unknown }
   try {
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
       title,
       discount_id: discountId,
       payload: body.payload,
-      created_by: actor.id,
+      created_by: uid,
     })
     .select("id,title,discount_id,payload,published_at,created_at,updated_at")
     .single()
