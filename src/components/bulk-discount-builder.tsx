@@ -32,6 +32,7 @@ import {
   deserializeBulkRows,
   recomputeRowMeta,
   serializeBulkRows,
+  validateBulkRow,
   type StoreEntity,
   type ProductCollection,
   type BulkDiscountRow,
@@ -311,6 +312,50 @@ export function BulkDiscountBuilder({
     }
   }
 
+  /** POST without rowIds publishes every unpublished row that passes server validation (same as API default). */
+  const handlePublishAllUnpublished = async () => {
+    if (mode !== "draft" || !draftId) return
+    const eligibleCount = rows.filter((r) => !r.publishedAt && validateBulkRow(r).isValid).length
+    if (eligibleCount === 0) {
+      toast.error("No eligible rows to publish", {
+        description: "Unpublished rows must be complete and valid.",
+      })
+      return
+    }
+    if (
+      !window.confirm(
+        `Publish all ${eligibleCount} valid unpublished discount(s) to Treez? Incomplete rows are skipped.`,
+      )
+    ) {
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/discount-drafts/${draftId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Publish failed")
+      const published = data.published ?? 0
+      if (data.draftRemoved) {
+        toast.success(`Published ${published} discount(s). Draft removed — all rows are live.`)
+        router.push("/dashboard/discounts/drafts")
+        return
+      }
+      toast.success(`Published ${published} discount(s)`)
+      setPublishSelection(new Set())
+      const reload = await fetch(`/api/discount-drafts/${draftId}`)
+      const d2 = await reload.json()
+      if (reload.ok && d2.draft?.rows) setRows(deserializeBulkRows(d2.draft.rows))
+    } catch (e) {
+      toast.error("Publish failed", { description: (e as Error).message })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBulkCreate = async () => {
     const validRows = rows.filter(row => row.isValid)
     
@@ -421,30 +466,31 @@ export function BulkDiscountBuilder({
 
   const validRowsCount = rows.filter((row) => row.isValid).length
 
-  const eligiblePublishIdsOnPage = React.useMemo(
-    () => paginatedRows.filter((r) => !r.publishedAt).map((r) => r.id),
-    [paginatedRows],
+  const eligiblePublishIdsAll = React.useMemo(
+    () => rows.filter((r) => !r.publishedAt).map((r) => r.id),
+    [rows],
   )
 
-  const allPageEligibleSelected =
-    eligiblePublishIdsOnPage.length > 0 &&
-    eligiblePublishIdsOnPage.every((id) => publishSelection.has(id))
+  const allUnpublishedSelectedForPublish =
+    eligiblePublishIdsAll.length > 0 &&
+    eligiblePublishIdsAll.every((id) => publishSelection.has(id))
 
-  const toggleSelectPageForPublish = (select: boolean) => {
+  const toggleSelectAllUnpublishedForPublish = (select: boolean) => {
     setPublishSelection((prev) => {
       const next = new Set(prev)
       if (select) {
-        for (const id of eligiblePublishIdsOnPage) next.add(id)
+        for (const id of eligiblePublishIdsAll) next.add(id)
       } else {
-        for (const id of eligiblePublishIdsOnPage) next.delete(id)
+        for (const id of eligiblePublishIdsAll) next.delete(id)
       }
       return next
     })
   }
 
-  const selectAllUnpublishedForPublish = () => {
-    setPublishSelection(new Set(rows.filter((r) => !r.publishedAt).map((r) => r.id)))
-  }
+  const publishAllEligibleCount = React.useMemo(
+    () => rows.filter((r) => !r.publishedAt && validateBulkRow(r).isValid).length,
+    [rows],
+  )
 
   const tableRangeStart = rows.length === 0 ? 0 : (tablePage - 1) * TABLE_PAGE_SIZE + 1
   const tableRangeEnd = Math.min(tablePage * TABLE_PAGE_SIZE, rows.length)
@@ -593,21 +639,42 @@ export function BulkDiscountBuilder({
                 </Button>
               </ActionTooltip>
               {mode === "draft" && draftId ? (
-                <ActionTooltip label="Create selected rows as live discounts in Treez (valid rows only)." side="top">
-                  <Button
-                    type="button"
-                    onClick={() => void handlePublishSelected()}
-                    className="h-9 gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
-                    disabled={loading || loadingData || publishSelection.size === 0}
+                <>
+                  <ActionTooltip
+                    label="Publish every valid unpublished row in this draft (not only selected)."
+                    side="top"
                   >
-                    {loading ? (
-                      <Loader2Icon className="size-4 animate-spin" />
-                    ) : (
-                      <CheckIcon className="size-4" />
-                    )}
-                    Publish selected
-                  </Button>
-                </ActionTooltip>
+                    <Button
+                      type="button"
+                      onClick={() => void handlePublishAllUnpublished()}
+                      variant="outline"
+                      className="h-9 gap-2 border-amber-600/50 text-amber-900 hover:bg-amber-50 dark:text-amber-100 dark:hover:bg-amber-950/40"
+                      disabled={loading || loadingData || publishAllEligibleCount === 0}
+                    >
+                      {loading ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <CheckIcon className="size-4" />
+                      )}
+                      Publish all ({publishAllEligibleCount})
+                    </Button>
+                  </ActionTooltip>
+                  <ActionTooltip label="Create selected rows as live discounts in Treez (valid rows only)." side="top">
+                    <Button
+                      type="button"
+                      onClick={() => void handlePublishSelected()}
+                      className="h-9 gap-2 bg-amber-600 text-white hover:bg-amber-600/90"
+                      disabled={loading || loadingData || publishSelection.size === 0}
+                    >
+                      {loading ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <CheckIcon className="size-4" />
+                      )}
+                      Publish selected
+                    </Button>
+                  </ActionTooltip>
+                </>
               ) : null}
               {mode === "create" ? (
                 <ActionTooltip label="Create every valid row in Treez as a new service discount." side="top">
@@ -662,16 +729,18 @@ export function BulkDiscountBuilder({
                                 render={
                                   <div className="flex items-center justify-center py-0.5">
                                     <Checkbox
-                                      checked={allPageEligibleSelected}
-                                      disabled={eligiblePublishIdsOnPage.length === 0}
-                                      onCheckedChange={(c) => toggleSelectPageForPublish(c === true)}
-                                      aria-label="Select all unpublished rows on this page for publish"
+                                      checked={allUnpublishedSelectedForPublish}
+                                      disabled={eligiblePublishIdsAll.length === 0}
+                                      onCheckedChange={(c) =>
+                                        toggleSelectAllUnpublishedForPublish(c === true)
+                                      }
+                                      aria-label="Select all unpublished rows in this draft for publish"
                                     />
                                   </div>
                                 }
                               />
                               <TooltipContent side="top" sideOffset={6} className="max-w-xs text-left">
-                                Select or clear all unpublished rows on this page for publishing to Treez.
+                                Select or clear all unpublished rows in this draft (every page) for publishing to Treez.
                               </TooltipContent>
                             </Tooltip>
                           </th>
@@ -1098,12 +1167,12 @@ export function BulkDiscountBuilder({
                   </span>
                   {mode === "draft" && unpublishedRowCount > 0 ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <ActionTooltip label="Check every unpublished row in this draft for publishing." side="top">
+                      <ActionTooltip label="Select every unpublished row in this draft (all pages)." side="top">
                         <Button
                           type="button"
                           variant="link"
                           className="h-auto p-0 text-xs font-medium text-foreground"
-                          onClick={selectAllUnpublishedForPublish}
+                          onClick={() => toggleSelectAllUnpublishedForPublish(true)}
                         >
                           Select all unpublished ({unpublishedRowCount})
                         </Button>
