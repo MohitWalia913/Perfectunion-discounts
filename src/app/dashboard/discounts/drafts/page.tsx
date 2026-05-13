@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { ActionTooltip } from "@/components/action-tooltip"
 import { Button } from "@/components/ui/button"
-import { ArrowLeftIcon, Loader2Icon, PencilIcon, PlusIcon } from "lucide-react"
+import { ArrowLeftIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 type DraftListItem = {
@@ -21,6 +21,7 @@ export default function DiscountDraftsListPage() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(true)
   const [drafts, setDrafts] = React.useState<DraftListItem[]>([])
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -41,6 +42,28 @@ export default function DiscountDraftsListPage() {
       cancelled = true
     }
   }, [])
+
+  async function deleteDraft(id: string, title: string) {
+    if (
+      !window.confirm(
+        `Delete draft “${title}”? This removes it from the server and cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/discount-drafts/${id}`, { method: "DELETE" })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok) throw new Error(data.error || "Failed to delete draft")
+      setDrafts((prev) => prev.filter((d) => d.id !== id))
+      toast.success("Draft deleted")
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <DashboardShell
@@ -95,8 +118,8 @@ export default function DiscountDraftsListPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Updated
                   </th>
-                  <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Open
+                  <th className="min-w-[140px] px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -125,18 +148,41 @@ export default function DiscountDraftsListPage() {
                         {d.updated_at ? new Date(d.updated_at).toLocaleString() : "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <ActionTooltip label={`Open “${d.title}” in the bulk draft editor.`} side="left">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            render={<Link href={`/dashboard/discounts/drafts/${d.id}`} prefetch />}
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <ActionTooltip label={`Open “${d.title}” in the bulk draft editor.`} side="left">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              render={<Link href={`/dashboard/discounts/drafts/${d.id}`} prefetch />}
+                              disabled={deletingId === d.id}
+                            >
+                              <PencilIcon className="size-3.5" />
+                              Edit
+                            </Button>
+                          </ActionTooltip>
+                          <ActionTooltip
+                            label={`Permanently delete “${d.title}” from the server.`}
+                            side="left"
                           >
-                            <PencilIcon className="size-3.5" />
-                            Edit
-                          </Button>
-                        </ActionTooltip>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              disabled={deletingId === d.id}
+                              onClick={() => void deleteDraft(d.id, d.title)}
+                            >
+                              {deletingId === d.id ? (
+                                <Loader2Icon className="size-3.5 animate-spin" />
+                              ) : (
+                                <Trash2Icon className="size-3.5" />
+                              )}
+                              Delete
+                            </Button>
+                          </ActionTooltip>
+                        </div>
                       </td>
                     </tr>
                   ))
