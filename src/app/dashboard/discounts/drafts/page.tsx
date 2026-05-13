@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ActionTooltip } from "@/components/action-tooltip"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
@@ -22,6 +23,10 @@ export default function DiscountDraftsListPage() {
   const [loading, setLoading] = React.useState(true)
   const [drafts, setDrafts] = React.useState<DraftListItem[]>([])
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [draftPendingDelete, setDraftPendingDelete] = React.useState<{
+    id: string
+    title: string
+  } | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -43,14 +48,9 @@ export default function DiscountDraftsListPage() {
     }
   }, [])
 
-  async function deleteDraft(id: string, title: string) {
-    if (
-      !window.confirm(
-        `Delete draft “${title}”? This removes it from the server and cannot be undone.`,
-      )
-    ) {
-      return
-    }
+  async function confirmDeleteDraft() {
+    if (!draftPendingDelete) return
+    const { id } = draftPendingDelete
     setDeletingId(id)
     try {
       const res = await fetch(`/api/discount-drafts/${id}`, { method: "DELETE" })
@@ -58,6 +58,7 @@ export default function DiscountDraftsListPage() {
       if (!res.ok) throw new Error(data.error || "Failed to delete draft")
       setDrafts((prev) => prev.filter((d) => d.id !== id))
       toast.success("Draft deleted")
+      setDraftPendingDelete(null)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -172,7 +173,9 @@ export default function DiscountDraftsListPage() {
                               size="sm"
                               className="gap-1 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               disabled={deletingId === d.id}
-                              onClick={() => void deleteDraft(d.id, d.title)}
+                              onClick={() =>
+                                setDraftPendingDelete({ id: d.id, title: d.title })
+                              }
                             >
                               {deletingId === d.id ? (
                                 <Loader2Icon className="size-3.5 animate-spin" />
@@ -192,6 +195,27 @@ export default function DiscountDraftsListPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={draftPendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && deletingId === null) setDraftPendingDelete(null)
+        }}
+        title="Delete draft?"
+        description={
+          draftPendingDelete ? (
+            <>
+              Delete draft &ldquo;{draftPendingDelete.title}&rdquo;? This removes it from the server and
+              cannot be undone.
+            </>
+          ) : null
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        isWorking={deletingId !== null && draftPendingDelete !== null}
+        onConfirm={() => void confirmDeleteDraft()}
+      />
     </DashboardShell>
   )
 }

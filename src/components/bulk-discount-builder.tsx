@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -79,6 +80,7 @@ export function BulkDiscountBuilder({
   const [savingDraft, setSavingDraft] = React.useState(false)
   const [loadingDraft, setLoadingDraft] = React.useState(mode === "draft")
   const [importingLive, setImportingLive] = React.useState(false)
+  const [importLiveConfirmOpen, setImportLiveConfirmOpen] = React.useState(false)
   const [publishSelection, setPublishSelection] = React.useState<Set<string>>(() => new Set())
   const [tablePage, setTablePage] = React.useState(1)
   const [globalAutoPublishDate, setGlobalAutoPublishDate] = React.useState("")
@@ -417,14 +419,7 @@ export function BulkDiscountBuilder({
     }
   }
 
-  const handleImportLivePercentDiscounts = async () => {
-    if (
-      !window.confirm(
-        "Replace all rows in the grid with active percent discounts from Treez? Current rows will be lost unless you saved a draft.",
-      )
-    ) {
-      return
-    }
+  const runImportLivePercentDiscounts = async () => {
     if (loadingData) {
       toast.error("Wait for stores and collections to finish loading.")
       return
@@ -462,6 +457,11 @@ export function BulkDiscountBuilder({
     } finally {
       setImportingLive(false)
     }
+  }
+
+  const handleImportLivePercentDiscounts = async () => {
+    setImportLiveConfirmOpen(false)
+    await runImportLivePercentDiscounts()
   }
 
   const validRowsCount = rows.filter((row) => row.isValid).length
@@ -592,7 +592,7 @@ export function BulkDiscountBuilder({
               <ActionTooltip label="Replace the grid with active percent discounts currently in Treez (with confirmation)." side="top">
                 <Button
                   type="button"
-                  onClick={() => void handleImportLivePercentDiscounts()}
+                  onClick={() => setImportLiveConfirmOpen(true)}
                   variant="outline"
                   className="h-9 gap-2"
                   disabled={loading || loadingData || importingLive || savingDraft}
@@ -1313,6 +1313,19 @@ export function BulkDiscountBuilder({
             </div>
           )}
       </div>
+
+      <ConfirmDialog
+        open={importLiveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !importingLive) setImportLiveConfirmOpen(false)
+        }}
+        title="Replace grid with live discounts?"
+        description="Replace all rows in the grid with active percent discounts from Treez? Current rows will be lost unless you saved a draft."
+        confirmLabel="Replace rows"
+        cancelLabel="Cancel"
+        variant="default"
+        onConfirm={() => void handleImportLivePercentDiscounts()}
+      />
     </DashboardShell>
   )
 }

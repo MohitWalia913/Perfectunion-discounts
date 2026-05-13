@@ -6,7 +6,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ProfileRow } from "@/lib/auth/types"
 import {
-  CirclePlusIcon,
   FileStackIcon,
   HelpCircleIcon,
   LayoutGridIcon,
@@ -79,7 +78,7 @@ const SIDEBAR_NAV_LINK_CLASS = cn(
 const SECTION_LABEL_CLASS =
   "text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50"
 
-/** Mobile dock keeps all destinations including Create. */
+/** Mobile dock: main discount destinations (single-create page remains routable, not featured here). */
 const MOBILE_NAV = [
   {
     href: "/dashboard",
@@ -92,12 +91,6 @@ const MOBILE_NAV = [
     label: "Import database",
     shortLabel: "Import",
     icon: UploadIcon,
-  },
-  {
-    href: "/dashboard/discounts/create",
-    label: "Create discount",
-    shortLabel: "Create",
-    icon: CirclePlusIcon,
   },
 ] as const
 

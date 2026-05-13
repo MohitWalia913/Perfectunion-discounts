@@ -15,7 +15,6 @@ import {
   type Action,
 } from "kbar"
 import {
-  CirclePlusIcon,
   FileStackIcon,
   HelpCircleIcon,
   LayoutGridIcon,
@@ -102,15 +101,6 @@ function RegisterKBarActions({ managerMode }: { managerMode: boolean }) {
         keywords: "import database bulk upload spreadsheet",
         icon: <UploadIcon aria-hidden />,
         perform: () => router.push("/dashboard/discounts/bulk-upload"),
-      },
-      {
-        id: "nav-create",
-        name: "Create discount",
-        subtitle: "Single discount flow",
-        section: "Navigation",
-        keywords: "new one discount",
-        icon: <CirclePlusIcon aria-hidden />,
-        perform: () => router.push("/dashboard/discounts/create"),
       },
       {
         id: "nav-drafts",
