@@ -117,6 +117,9 @@ export function UsersManagement() {
 
   const [editOpen, setEditOpen] = React.useState(false)
   const [editTarget, setEditTarget] = React.useState<ProfileWithShares | null>(null)
+  const [editEmail, setEditEmail] = React.useState("")
+  const [editFullName, setEditFullName] = React.useState("")
+  const [editPassword, setEditPassword] = React.useState("")
   const [editStores, setEditStores] = React.useState<Set<string>>(() => new Set())
   const [editPromos, setEditPromos] = React.useState<Set<string>>(() => new Set())
   const [editSaving, setEditSaving] = React.useState(false)
@@ -328,6 +331,9 @@ export function UsersManagement() {
   const openEditManager = (row: ProfileWithShares) => {
     if (!me || !canConfigureManagerAccess(me, row)) return
     setEditTarget(row)
+    setEditEmail(row.email?.trim() ?? "")
+    setEditFullName(row.full_name?.trim() ?? "")
+    setEditPassword("")
     setEditStores(new Set(row.assigned_store_names ?? []))
     setEditPromos(new Set(row.shared_sales_promo_document_ids ?? []))
     setStoreSearchEdit("")
@@ -338,6 +344,14 @@ export function UsersManagement() {
   const saveEditManager = async () => {
     if (!me || !editTarget) return
     if (!canConfigureManagerAccess(me, editTarget)) return
+    if (!editEmail.trim()) {
+      toast.error("Email is required")
+      return
+    }
+    if (editPassword.length > 0 && editPassword.length < 6) {
+      toast.error("Password must be at least 6 characters")
+      return
+    }
     if (editStores.size === 0) {
       toast.error("Select at least one store location")
       return
@@ -349,6 +363,9 @@ export function UsersManagement() {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: editEmail.trim(),
+          full_name: editFullName.trim() || null,
+          password: editPassword,
           assigned_store_names: Array.from(editStores).sort((a, b) => a.localeCompare(b)),
           shared_sales_promo_document_ids: Array.from(editPromos),
         }),
@@ -358,7 +375,7 @@ export function UsersManagement() {
         toast.error(data.error ?? "Update failed")
         return
       }
-      toast.success("Manager assignments updated")
+      toast.success("Manager updated")
       setEditOpen(false)
       setEditTarget(null)
       void load()
@@ -559,7 +576,10 @@ export function UsersManagement() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
                         {canEditMgr ? (
-                          <ActionTooltip label="Assign stores and Sales Promo document access." side="left">
+                          <ActionTooltip
+                            label="Edit email, name, password, store locations, and Sales Promo access."
+                            side="left"
+                          >
                             <Button
                               type="button"
                               variant="ghost"
@@ -837,20 +857,84 @@ export function UsersManagement() {
         open={editOpen}
         onOpenChange={(o) => {
           setEditOpen(o)
-          if (!o) setEditTarget(null)
+          if (!o) {
+            setEditTarget(null)
+            setEditPassword("")
+          }
         }}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit manager access</DialogTitle>
+            <DialogTitle>Edit manager</DialogTitle>
             <DialogDescription>
               {editTarget
-                ? `Assign stores and optional Sales Promo shares for ${editTarget.email ?? editTarget.id}.`
+                ? `Update account details and access for ${editTarget.email ?? editTarget.id}.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
           {editTarget ? (
             <div className="grid gap-4 py-2">
+              <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Account
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    autoComplete="off"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="name@company.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    placeholder="Jane Smith"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="edit-pass">New password</Label>
+                    <ActionTooltip label="Fill with a random strong password." side="left">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto gap-1 px-2 py-1 text-xs"
+                        onClick={() => {
+                          const p = generateSecurePassword()
+                          setEditPassword(p)
+                          toast.message("Password generated", {
+                            description: "Copy it now and share it securely with the user.",
+                          })
+                        }}
+                      >
+                        <SparklesIcon className="size-3.5" aria-hidden />
+                        Generate
+                      </Button>
+                    </ActionTooltip>
+                  </div>
+                  <Input
+                    id="edit-pass"
+                    type="text"
+                    autoComplete="new-password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Leave blank to keep current password"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Only admins can set a new password here (minimum 6 characters). Leave empty to leave login
+                    unchanged.
+                  </p>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Store locations</Label>
                 <div className="relative">

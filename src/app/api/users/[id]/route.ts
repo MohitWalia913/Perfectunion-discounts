@@ -26,6 +26,9 @@ export async function PATCH(
   let body: {
     assigned_store_names?: unknown
     shared_sales_promo_document_ids?: unknown
+    email?: unknown
+    full_name?: unknown
+    password?: unknown
   }
   try {
     body = await request.json()
@@ -55,6 +58,43 @@ export async function PATCH(
     )
   }
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  let nextEmail: string | undefined
+  if (body.email !== undefined) {
+    if (typeof body.email !== "string") {
+      return NextResponse.json({ ok: false, error: "Invalid email" }, { status: 400 })
+    }
+    const trimmed = body.email.trim()
+    if (!trimmed || !emailRegex.test(trimmed)) {
+      return NextResponse.json({ ok: false, error: "A valid email is required" }, { status: 400 })
+    }
+    nextEmail = trimmed
+  }
+
+  let nextFullName: string | null | undefined
+  if (body.full_name !== undefined) {
+    if (body.full_name !== null && typeof body.full_name !== "string") {
+      return NextResponse.json({ ok: false, error: "Invalid full name" }, { status: 400 })
+    }
+    nextFullName =
+      typeof body.full_name === "string" ? body.full_name.trim() || null : null
+  }
+
+  let nextPassword: string | undefined
+  if (body.password !== undefined && body.password !== null) {
+    if (typeof body.password !== "string") {
+      return NextResponse.json({ ok: false, error: "Invalid password" }, { status: 400 })
+    }
+    const p = body.password
+    if (p.length > 0 && p.length < 6) {
+      return NextResponse.json(
+        { ok: false, error: "Password must be at least 6 characters" },
+        { status: 400 },
+      )
+    }
+    if (p.length > 0) nextPassword = p
+  }
+
   const v = await normalizeAndValidateManagerStoreNames(body.assigned_store_names)
   if (!v.ok) {
     return NextResponse.json({ ok: false, error: v.error }, { status: 400 })
@@ -65,13 +105,52 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: promoParse.error }, { status: 400 })
   }
 
-  const { error: upErr } = await admin
-    .from("profiles")
-    .update({
-      assigned_store_names: v.names,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", targetId)
+  const authPatch: {
+    email?: string
+    password?: string
+    user_metadata?: Record<string, unknown>
+  } = {}
+
+  if (nextEmail !== undefined && nextEmail !== (target.email ?? "")) {
+    authPatch.email = nextEmail
+  }
+  if (nextPassword !== undefined) {
+    authPatch.password = nextPassword
+  }
+  if (nextFullName !== undefined) {
+    const { data: authRow, error: getAuthErr } = await admin.auth.admin.getUserById(targetId)
+    if (getAuthErr || !authRow?.user) {
+      return NextResponse.json(
+        { ok: false, error: getAuthErr?.message ?? "Could not load auth user" },
+        { status: 500 },
+      )
+    }
+    const prevMeta = (authRow.user.user_metadata ?? {}) as Record<string, unknown>
+    authPatch.user_metadata = {
+      ...prevMeta,
+      full_name: nextFullName ?? "",
+    }
+  }
+
+  if (Object.keys(authPatch).length > 0) {
+    const { error: authErr } = await admin.auth.admin.updateUserById(targetId, authPatch)
+    if (authErr) {
+      return NextResponse.json({ ok: false, error: authErr.message }, { status: 400 })
+    }
+  }
+
+  const profileUpdate: Record<string, unknown> = {
+    assigned_store_names: v.names,
+    updated_at: new Date().toISOString(),
+  }
+  if (nextEmail !== undefined) {
+    profileUpdate.email = nextEmail
+  }
+  if (nextFullName !== undefined) {
+    profileUpdate.full_name = nextFullName
+  }
+
+  const { error: upErr } = await admin.from("profiles").update(profileUpdate).eq("id", targetId)
 
   if (upErr) {
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 })
