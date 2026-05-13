@@ -96,10 +96,10 @@ function RegisterKBarActions({ managerMode }: { managerMode: boolean }) {
       },
       {
         id: "nav-bulk-upload",
-        name: "Bulk upload discounts",
+        name: "Import database",
         subtitle: "Create many discounts from the grid",
         section: "Navigation",
-        keywords: "bulk create upload spreadsheet",
+        keywords: "import database bulk upload spreadsheet",
         icon: <UploadIcon aria-hidden />,
         perform: () => router.push("/dashboard/discounts/bulk-upload"),
       },

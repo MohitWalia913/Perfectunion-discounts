@@ -78,7 +78,7 @@ export function DashboardHelpPage() {
                 We&apos;re here to help
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-[15px] lg:text-base">
-                Questions about discounts, drafts, publishing, or access? Reach the WebDS team by email, or use
+                Questions about discounts, drafts, publishing, or access? Reach the MGWHOLDINGS team by email, or use
                 the search bar in the header (keyboard: Cmd+K on Mac, Ctrl+K on Windows) to jump anywhere in the
                 app.
               </p>
@@ -138,9 +138,9 @@ export function DashboardHelpPage() {
               href="/dashboard/discounts/bulk-upload"
               icon={UploadIcon}
               description="Create many discounts at once from the table."
-              tooltip="Open the bulk upload grid to add many discounts before saving or publishing."
+              tooltip="Open Import database to add many discounts before saving or publishing."
             >
-              Bulk upload discounts
+              Import database
             </PageLink>
             <PageLink
               href="/dashboard/discounts/drafts"

@@ -56,7 +56,7 @@ const SIDEBAR_NAV = [
   { href: "/dashboard", label: "All discounts", icon: LayoutGridIcon },
   {
     href: "/dashboard/discounts/bulk-upload",
-    label: "Bulk upload discounts",
+    label: "Import database",
     icon: UploadIcon,
   },
   {
@@ -89,8 +89,8 @@ const MOBILE_NAV = [
   },
   {
     href: "/dashboard/discounts/bulk-upload",
-    label: "Bulk create",
-    shortLabel: "Bulk",
+    label: "Import database",
+    shortLabel: "Import",
     icon: UploadIcon,
   },
   {

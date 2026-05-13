@@ -485,7 +485,7 @@ export function BulkDiscountBuilder({
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
             <div className="min-w-0 flex flex-1 flex-col gap-3">
               <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-                {mode === "draft" ? "Draft bulk discounts" : "Bulk Create Discounts"}
+                {mode === "draft" ? "Draft bulk discounts" : "Import database"}
               </h1>
               {mode === "create" ? (
                 <p className="text-sm text-muted-foreground">

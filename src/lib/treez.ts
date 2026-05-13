@@ -394,8 +394,8 @@ export async function deleteServiceDiscount(
   discountId: string,
 ): Promise<unknown> {
   const base = (env.apiBase ?? "https://api-prod.treez.io").replace(/\/$/, "")
-  const url = `${base}/service/discount/v3/${encodeURIComponent(discountId)}`
-  
+  const url = `${base}/service/discount/v3/discount/${encodeURIComponent(discountId)}`
+
   console.log("deleteServiceDiscount - URL:", url)
   console.log("deleteServiceDiscount - Discount ID:", discountId)
   
@@ -440,7 +440,7 @@ export async function deleteServiceDiscount(
 }
 
 /**
- * DELETE `/{ver}/{discountId}` per Treez discount service OpenAPI (`/service/discount`).
+ * DELETE `/service/discount/v3/discount/{discountId}` (Treez service discount API).
  * On 403, attempts PATCH deactivate — some certificates disallow hard deletes.
  */
 export async function deleteServiceDiscountOrFallback(
@@ -468,8 +468,8 @@ export async function deactivateServiceDiscount(
   discountId: string,
 ): Promise<unknown> {
   const base = (env.apiBase ?? "https://api-prod.treez.io").replace(/\/$/, "")
-  const url = `${base}/service/discount/v3/${encodeURIComponent(discountId)}`
-  
+  const url = `${base}/service/discount/v3/discount/${encodeURIComponent(discountId)}`
+
   console.log("deactivateServiceDiscount - URL:", url)
   const auth = buildTreezAuthorizationHeader(url, env)
 
