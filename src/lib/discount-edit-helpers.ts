@@ -127,7 +127,7 @@ export function rowToEditDraft(
  * Treez PUT `/v3/discount` OpenAPI marks these `conditions` booleans as required.
  * GET often returns a sparse `conditions` object; merging avoids 422 on update.
  */
-const TREEZ_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
+export const TREEZ_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
   customerCapEnabled: false,
   purchaseMinimumEnabled: false,
   customerEventEnabled: false,
@@ -138,7 +138,7 @@ const TREEZ_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
   packageAgeEnabled: false,
 }
 
-const TREEZ_MANUAL_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
+export const TREEZ_MANUAL_CONDITIONS_PUT_DEFAULTS: Record<string, boolean> = {
   customerCapEnabled: false,
   purchaseMinimumEnabled: false,
   itemLimitEnabled: false,

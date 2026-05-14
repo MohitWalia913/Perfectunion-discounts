@@ -44,6 +44,24 @@ import { ActionTooltip } from "@/components/action-tooltip"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const TABLE_PAGE_SIZE = 10
+const PUBLISH_CHUNK_SIZE = 10
+const PUBLISH_CHUNK_GAP_MS = 450
+
+/** Valid row that is either new (not yet live in draft) or has a Treez id for PUT sync. */
+function rowEligibleForPublishSync(r: BulkDiscountRow): boolean {
+  if (!r.isValid) return false
+  const tid = (r.treezDiscountId ?? "").trim()
+  if (r.publishedAt && String(r.publishedAt).trim() && !tid) return false
+  return true
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size))
+  return chunks
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 interface UploadResult {
   index: number
@@ -82,6 +100,9 @@ export function BulkDiscountBuilder({
   const [importingLive, setImportingLive] = React.useState(false)
   const [importLiveConfirmOpen, setImportLiveConfirmOpen] = React.useState(false)
   const [publishSelection, setPublishSelection] = React.useState<Set<string>>(() => new Set())
+  const [publishProgress, setPublishProgress] = React.useState<{ done: number; total: number } | null>(
+    null,
+  )
   const [tablePage, setTablePage] = React.useState(1)
   const [globalAutoPublishDate, setGlobalAutoPublishDate] = React.useState("")
 
@@ -280,6 +301,82 @@ export function BulkDiscountBuilder({
     }
   }
 
+  const runPublishInChunks = async (rowIds: string[]) => {
+    if (mode !== "draft" || !draftId) return
+    const unique = [...new Set(rowIds)]
+    const eligible = unique.filter((id) => {
+      const r = rows.find((x) => x.id === id)
+      return r && rowEligibleForPublishSync(r)
+    })
+    if (eligible.length === 0) {
+      toast.error("No eligible rows to publish", {
+        description:
+          "Rows must be complete and valid. Live rows without a Treez id cannot be synced — re-import from live discounts.",
+      })
+      return
+    }
+    const chunks = chunkArray(eligible, PUBLISH_CHUNK_SIZE)
+    setPublishProgress({ done: 0, total: eligible.length })
+    setLoading(true)
+    let created = 0
+    let updated = 0
+    let failed = 0
+    let processed = 0
+    try {
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci]
+        const res = await fetch(`/api/discount-drafts/${draftId}/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rowIds: chunk }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || "Publish failed")
+        created += typeof data.created === "number" ? data.created : 0
+        updated += typeof data.updated === "number" ? data.updated : 0
+        const chunkResults = Array.isArray(data.results) ? data.results : []
+        failed += chunkResults.filter((r: { ok: boolean }) => !r.ok).length
+        processed += chunk.length
+        setPublishProgress({ done: processed, total: eligible.length })
+
+        if (data.draftRemoved) {
+          toast.success(
+            `Finished: ${data.published ?? processed} row(s). Draft removed — all rows are live.`,
+          )
+          router.push("/dashboard/discounts/drafts")
+          return
+        }
+
+        const reload = await fetch(`/api/discount-drafts/${draftId}`)
+        const d2 = await reload.json()
+        if (reload.ok && d2.draft?.rows) setRows(deserializeBulkRows(d2.draft.rows))
+        setPublishSelection((prev) => {
+          const next = new Set(prev)
+          for (const id of chunk) next.delete(id)
+          return next
+        })
+
+        if (ci < chunks.length - 1) await sleep(PUBLISH_CHUNK_GAP_MS)
+      }
+      toast.success(
+        `Publish complete: ${created} created, ${updated} updated${failed ? `, ${failed} failed` : ""}.`,
+      )
+      setPublishSelection(new Set())
+    } catch (e) {
+      toast.error("Publish failed", { description: (e as Error).message })
+      try {
+        const reload = await fetch(`/api/discount-drafts/${draftId}`)
+        const d2 = await reload.json()
+        if (reload.ok && d2.draft?.rows) setRows(deserializeBulkRows(d2.draft.rows))
+      } catch {
+        /* ignore */
+      }
+    } finally {
+      setPublishProgress(null)
+      setLoading(false)
+    }
+  }
+
   const handlePublishSelected = async () => {
     if (mode !== "draft" || !draftId) return
     const ids = [...publishSelection]
@@ -287,75 +384,28 @@ export function BulkDiscountBuilder({
       toast.error("Select at least one row to publish")
       return
     }
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/discount-drafts/${draftId}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIds: ids }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Publish failed")
-      const published = data.published ?? 0
-      if (data.draftRemoved) {
-        toast.success(`Published ${published} discount(s). Draft removed — all rows are live.`)
-        router.push("/dashboard/discounts/drafts")
-        return
-      }
-      toast.success(`Published ${published} discount(s)`)
-      setPublishSelection(new Set())
-      const reload = await fetch(`/api/discount-drafts/${draftId}`)
-      const d2 = await reload.json()
-      if (reload.ok && d2.draft?.rows) setRows(deserializeBulkRows(d2.draft.rows))
-    } catch (e) {
-      toast.error("Publish failed", { description: (e as Error).message })
-    } finally {
-      setLoading(false)
-    }
+    await runPublishInChunks(ids)
   }
 
-  /** POST without rowIds publishes every unpublished row that passes server validation (same as API default). */
-  const handlePublishAllUnpublished = async () => {
+  /** Publish / sync every eligible row in this draft (batched on the client). */
+  const handlePublishAllEligible = async () => {
     if (mode !== "draft" || !draftId) return
-    const eligibleCount = rows.filter((r) => !r.publishedAt && validateBulkRow(r).isValid).length
-    if (eligibleCount === 0) {
+    const eligibleIds = rows.filter(rowEligibleForPublishSync).map((r) => r.id)
+    if (eligibleIds.length === 0) {
       toast.error("No eligible rows to publish", {
-        description: "Unpublished rows must be complete and valid.",
+        description:
+          "Rows must be complete and valid. Live rows without a Treez id cannot be synced — re-import from live discounts.",
       })
       return
     }
     if (
       !window.confirm(
-        `Publish all ${eligibleCount} valid unpublished discount(s) to Treez? Incomplete rows are skipped.`,
+        `Publish or sync ${eligibleIds.length} eligible discount(s) to Treez in batches of ${PUBLISH_CHUNK_SIZE}? Incomplete or legacy rows are skipped.`,
       )
     ) {
       return
     }
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/discount-drafts/${draftId}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Publish failed")
-      const published = data.published ?? 0
-      if (data.draftRemoved) {
-        toast.success(`Published ${published} discount(s). Draft removed — all rows are live.`)
-        router.push("/dashboard/discounts/drafts")
-        return
-      }
-      toast.success(`Published ${published} discount(s)`)
-      setPublishSelection(new Set())
-      const reload = await fetch(`/api/discount-drafts/${draftId}`)
-      const d2 = await reload.json()
-      if (reload.ok && d2.draft?.rows) setRows(deserializeBulkRows(d2.draft.rows))
-    } catch (e) {
-      toast.error("Publish failed", { description: (e as Error).message })
-    } finally {
-      setLoading(false)
-    }
+    await runPublishInChunks(eligibleIds)
   }
 
   const handleBulkCreate = async () => {
@@ -467,15 +517,15 @@ export function BulkDiscountBuilder({
   const validRowsCount = rows.filter((row) => row.isValid).length
 
   const eligiblePublishIdsAll = React.useMemo(
-    () => rows.filter((r) => !r.publishedAt).map((r) => r.id),
+    () => rows.filter(rowEligibleForPublishSync).map((r) => r.id),
     [rows],
   )
 
-  const allUnpublishedSelectedForPublish =
+  const allEligibleSelectedForPublish =
     eligiblePublishIdsAll.length > 0 &&
     eligiblePublishIdsAll.every((id) => publishSelection.has(id))
 
-  const toggleSelectAllUnpublishedForPublish = (select: boolean) => {
+  const toggleSelectAllEligibleForPublish = (select: boolean) => {
     setPublishSelection((prev) => {
       const next = new Set(prev)
       if (select) {
@@ -487,10 +537,7 @@ export function BulkDiscountBuilder({
     })
   }
 
-  const publishAllEligibleCount = React.useMemo(
-    () => rows.filter((r) => !r.publishedAt && validateBulkRow(r).isValid).length,
-    [rows],
-  )
+  const publishAllEligibleCount = eligiblePublishIdsAll.length
 
   const tableRangeStart = rows.length === 0 ? 0 : (tablePage - 1) * TABLE_PAGE_SIZE + 1
   const tableRangeEnd = Math.min(tablePage * TABLE_PAGE_SIZE, rows.length)
@@ -641,12 +688,12 @@ export function BulkDiscountBuilder({
               {mode === "draft" && draftId ? (
                 <>
                   <ActionTooltip
-                    label="Publish every valid unpublished row in this draft (not only selected)."
+                    label={`Publish or sync every eligible row (${PUBLISH_CHUNK_SIZE} at a time to Treez). Includes live rows with a Treez id.`}
                     side="top"
                   >
                     <Button
                       type="button"
-                      onClick={() => void handlePublishAllUnpublished()}
+                      onClick={() => void handlePublishAllEligible()}
                       variant="outline"
                       className="h-9 gap-2 border-amber-600/50 text-amber-900 hover:bg-amber-50 dark:text-amber-100 dark:hover:bg-amber-950/40"
                       disabled={loading || loadingData || publishAllEligibleCount === 0}
@@ -659,7 +706,10 @@ export function BulkDiscountBuilder({
                       Publish all ({publishAllEligibleCount})
                     </Button>
                   </ActionTooltip>
-                  <ActionTooltip label="Create selected rows as live discounts in Treez (valid rows only)." side="top">
+                  <ActionTooltip
+                    label={`Create or update selected rows in Treez (${PUBLISH_CHUNK_SIZE} per request).`}
+                    side="top"
+                  >
                     <Button
                       type="button"
                       onClick={() => void handlePublishSelected()}
@@ -717,6 +767,24 @@ export function BulkDiscountBuilder({
 
           {!loadingData && !loadingDraft && (
             <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden">
+              {mode === "draft" && draftId && publishProgress ? (
+                <div className="border-b border-border bg-muted/40 px-4 py-3">
+                  <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                    <span>Publishing to Treez…</span>
+                    <span className="tabular-nums font-medium text-foreground">
+                      {publishProgress.done} / {publishProgress.total}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-amber-600 transition-[width] duration-300 ease-out dark:bg-amber-500"
+                      style={{
+                        width: `${publishProgress.total ? Math.min(100, (100 * publishProgress.done) / publishProgress.total) : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b border-border">
@@ -729,18 +797,18 @@ export function BulkDiscountBuilder({
                                 render={
                                   <div className="flex items-center justify-center py-0.5">
                                     <Checkbox
-                                      checked={allUnpublishedSelectedForPublish}
+                                      checked={allEligibleSelectedForPublish}
                                       disabled={eligiblePublishIdsAll.length === 0}
                                       onCheckedChange={(c) =>
-                                        toggleSelectAllUnpublishedForPublish(c === true)
+                                        toggleSelectAllEligibleForPublish(c === true)
                                       }
-                                      aria-label="Select all unpublished rows in this draft for publish"
+                                      aria-label="Select all eligible rows in this draft for publish or sync"
                                     />
                                   </div>
                                 }
                               />
                               <TooltipContent side="top" sideOffset={6} className="max-w-xs text-left">
-                                Select or clear all unpublished rows in this draft (every page) for publishing to Treez.
+                                Select or clear all eligible rows (every page): new rows, or live rows with a Treez id for updates.
                               </TooltipContent>
                             </Tooltip>
                           </th>
@@ -786,7 +854,7 @@ export function BulkDiscountBuilder({
                             <td className="px-2 py-2 align-middle">
                               <Checkbox
                                 checked={publishSelection.has(row.id)}
-                                disabled={!!row.publishedAt}
+                                disabled={!rowEligibleForPublishSync(row)}
                                 onCheckedChange={(c) => {
                                   setPublishSelection((prev) => {
                                     const n = new Set(prev)
@@ -1165,16 +1233,19 @@ export function BulkDiscountBuilder({
                       </>
                     ) : null}
                   </span>
-                  {mode === "draft" && unpublishedRowCount > 0 ? (
+                  {mode === "draft" && publishAllEligibleCount > 0 ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <ActionTooltip label="Select every unpublished row in this draft (all pages)." side="top">
+                      <ActionTooltip
+                        label="Select every eligible row in this draft (all pages) for publish or Treez sync."
+                        side="top"
+                      >
                         <Button
                           type="button"
                           variant="link"
                           className="h-auto p-0 text-xs font-medium text-foreground"
-                          onClick={() => toggleSelectAllUnpublishedForPublish(true)}
+                          onClick={() => toggleSelectAllEligibleForPublish(true)}
                         >
-                          Select all unpublished ({unpublishedRowCount})
+                          Select all eligible ({publishAllEligibleCount})
                         </Button>
                       </ActionTooltip>
                       <span className="text-border">·</span>

@@ -3,6 +3,7 @@ import {
   getDiscountActive,
   getDiscountAmount,
   getDiscountMethod,
+  getDiscountRowId,
   getDiscountTitle,
   getScheduleEndDateISO,
   getScheduleRepeatType,
@@ -98,6 +99,14 @@ export function treezDiscountToBulkRow(
     amount = row.amount != null ? String(row.amount).trim() : ""
   }
 
+  const treezId = getDiscountRowId(dr).trim()
+  let treezPutBase: Record<string, unknown> | null = null
+  try {
+    treezPutBase = JSON.parse(JSON.stringify(row)) as Record<string, unknown>
+  } catch {
+    treezPutBase = { ...(row as Record<string, unknown>) }
+  }
+
   const base: BulkDiscountRow = {
     id: crypto.randomUUID(),
     discountType: "CUSTOM",
@@ -114,6 +123,8 @@ export function treezDiscountToBulkRow(
     scheduledPublishDate: null,
     publishedAt: null,
     publishError: null,
+    treezDiscountId: treezId || null,
+    treezPutBase,
   }
 
   return recomputeRowMeta(base)

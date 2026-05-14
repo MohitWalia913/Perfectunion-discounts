@@ -7,15 +7,25 @@
 import { NextResponse } from "next/server"
 import { buildTreezPayloadsFromBulkRows } from "@/lib/bulk-discount-payload"
 import {
+  buildTreezPutPayloadFromBulkRow,
+  extractTreezDiscountIdFromResponse,
+  snapshotForTreezPutBase,
+} from "@/lib/bulk-discount-treez-put"
+import {
   deserializeBulkRows,
   isBulkDraftFullyPublished,
   recomputeRowMeta,
   serializeBulkRows,
   validateBulkRow,
-  type BulkDiscountRow,
 } from "@/lib/bulk-discount-io"
 import { createServiceRoleClient } from "@/lib/supabase/admin"
-import { createServiceDiscount, getTreezEnv } from "@/lib/treez"
+import { createServiceDiscount, getTreezEnv, updateServiceDiscount } from "@/lib/treez"
+
+const BETWEEN_TREEZ_MS = 150
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET?.trim()
@@ -60,6 +70,7 @@ export async function GET(request: Request) {
 
   let publishedCount = 0
   const details: { draftId: string; rowId: string; title: string; error?: string }[] = []
+  let treezDelay = false
 
   for (const d of drafts ?? []) {
     if (!d?.id) continue
@@ -81,16 +92,63 @@ export async function GET(request: Request) {
         continue
       }
 
+      const tid = (row.treezDiscountId ?? "").trim()
+
+      if (treezDelay) await delay(BETWEEN_TREEZ_MS)
+      treezDelay = true
+
+      if (tid) {
+        try {
+          const putPayload = buildTreezPutPayloadFromBulkRow(row, tid)
+          if (putPayload.organizationId == null) putPayload.organizationId = env.orgId
+          const putResBody = await updateServiceDiscount(env, putPayload)
+          const ts = new Date().toISOString()
+          const nextBase = snapshotForTreezPutBase(putResBody)
+          rows = rows.map((r) =>
+            r.id === row.id
+              ? {
+                  ...r,
+                  publishedAt: ts,
+                  publishError: null,
+                  treezDiscountId: tid,
+                  treezPutBase: nextBase ?? r.treezPutBase,
+                }
+              : r,
+          )
+          publishedCount += 1
+          changed = true
+          details.push({ draftId: d.id, rowId: row.id, title: row.title })
+        } catch (e) {
+          const msg = (e as Error).message || "Update failed"
+          rows = rows.map((r) =>
+            r.id === row.id ? { ...r, publishError: msg } : r,
+          )
+          changed = true
+          details.push({ draftId: d.id, rowId: row.id, title: row.title, error: msg })
+        }
+        continue
+      }
+
       const [payload] = buildTreezPayloadsFromBulkRows([row]).map((p) => ({
         ...p,
         organizationId: env.orgId,
       }))
 
       try {
-        await createServiceDiscount(env, payload)
+        const bodyJson = await createServiceDiscount(env, payload)
         const ts = new Date().toISOString()
+        const newId = extractTreezDiscountIdFromResponse(bodyJson)
+        const nextBase = snapshotForTreezPutBase(bodyJson)
         rows = rows.map((r) =>
-          r.id === row.id ? { ...r, publishedAt: ts, publishError: null } : r,
+          r.id === row.id
+            ? {
+                ...r,
+                publishedAt: ts,
+                publishError: null,
+                treezDiscountId: newId || r.treezDiscountId,
+                treezPutBase: nextBase ?? r.treezPutBase,
+              }
+            : r,
         )
         publishedCount += 1
         changed = true

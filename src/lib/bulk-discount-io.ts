@@ -32,6 +32,10 @@ export interface BulkDiscountRow {
   scheduledPublishDate?: string | null
   publishedAt?: string | null
   publishError?: string | null
+  /** Treez discount id when row was imported from live data or after a successful create. */
+  treezDiscountId?: string | null
+  /** Snapshot of Treez GET row for PUT merges (import / post-create). */
+  treezPutBase?: Record<string, unknown> | null
 }
 
 export type BulkDiscountRowStored = Omit<BulkDiscountRow, "startDate" | "endDate"> & {
@@ -67,6 +71,8 @@ export function defaultEmptyRow(): BulkDiscountRow {
     repeatType: "DO_NOT",
     selectedCollections: [],
     isValid: false,
+    treezDiscountId: null,
+    treezPutBase: null,
   }
 }
 
@@ -199,6 +205,16 @@ export function deserializeBulkRows(raw: unknown): BulkDiscountRow[] {
         typeof r.scheduledPublishDate === "string" ? r.scheduledPublishDate : null,
       publishedAt: typeof r.publishedAt === "string" ? r.publishedAt : null,
       publishError: typeof r.publishError === "string" ? r.publishError : null,
+      treezDiscountId:
+        typeof r.treezDiscountId === "string" && r.treezDiscountId.trim()
+          ? r.treezDiscountId.trim()
+          : null,
+      treezPutBase:
+        r.treezPutBase &&
+        typeof r.treezPutBase === "object" &&
+        !Array.isArray(r.treezPutBase)
+          ? (JSON.parse(JSON.stringify(r.treezPutBase)) as Record<string, unknown>)
+          : null,
     }
     out.push(recomputeRowMeta(base))
   }
