@@ -752,7 +752,7 @@ export function BulkDiscountBuilder({
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[132px] w-[132px] whitespace-nowrap">
                         Type *
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[200px]">
+                      <th className="py-2 pl-4 pr-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[200px]">
                         Title
                       </th>
                       <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">
@@ -863,7 +863,7 @@ export function BulkDiscountBuilder({
                             </PopoverContent>
                           </Popover>
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="py-2 pl-4 pr-2">
                           {row.discountType === "CUSTOM" ? (
                             <Input
                               value={row.customTitle}

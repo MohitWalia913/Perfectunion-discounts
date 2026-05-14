@@ -1040,7 +1040,7 @@ export function DiscountManagerClient({
                     </Tooltip>
                   </th>
                 ) : null}
-                <th className="min-w-[28%] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="min-w-[28%] py-2 pl-4 pr-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Title
                 </th>
                 <th className="w-[110px] px-2 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1064,7 +1064,7 @@ export function DiscountManagerClient({
                 <tr>
                   <td
                     colSpan={managerReadOnly ? 4 : 6}
-                    className="px-2 py-12 text-center text-sm text-muted-foreground"
+                    className="px-4 py-12 text-center text-sm text-muted-foreground"
                   >
                     No discounts for this filter.
                   </td>
@@ -1089,7 +1089,7 @@ export function DiscountManagerClient({
                           />
                         </td>
                       ) : null}
-                      <td className="px-2 py-2 align-middle">
+                      <td className="py-2 pl-4 pr-2 align-middle">
                         <span className="block truncate text-sm font-medium text-foreground">
                           {title}
                         </span>
