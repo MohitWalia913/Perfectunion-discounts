@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   ArrowLeftIcon,
@@ -53,6 +54,10 @@ function rowEligibleForPublishSync(r: BulkDiscountRow): boolean {
   const tid = (r.treezDiscountId ?? "").trim()
   if (r.publishedAt && String(r.publishedAt).trim() && !tid) return false
   return true
+}
+
+function rowIsExistingInTreez(r: BulkDiscountRow): boolean {
+  return !!(r.treezDiscountId ?? "").trim()
 }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -812,8 +817,8 @@ export function BulkDiscountBuilder({
                               </TooltipContent>
                             </Tooltip>
                           </th>
-                          <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">
-                            Status
+                          <th className="min-w-[100px] px-2 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Row type
                           </th>
                         </>
                       ) : null}
@@ -866,19 +871,26 @@ export function BulkDiscountBuilder({
                                 aria-label="Select for publish"
                               />
                             </td>
-                            <td className="px-2 py-2 align-middle text-xs">
-                              {row.publishedAt ? (
-                                <span className="font-medium text-green-700">Live</span>
-                              ) : row.scheduledPublishDate ? (
-                                <span className="text-muted-foreground">Queued</span>
-                              ) : (
-                                <span className="text-muted-foreground">Draft</span>
-                              )}
-                              {row.publishError ? (
-                                <span className="mt-0.5 block truncate text-[10px] text-destructive" title={row.publishError}>
-                                  {row.publishError}
-                                </span>
-                              ) : null}
+                            <td className="px-2 py-2 align-middle">
+                              <div className="flex flex-col gap-1">
+                                {rowIsExistingInTreez(row) ? (
+                                  <Badge variant="secondary" className="w-fit font-medium">
+                                    Existing
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="w-fit border-primary/25 font-medium text-foreground">
+                                    New
+                                  </Badge>
+                                )}
+                                {row.publishError ? (
+                                  <span
+                                    className="max-w-[8rem] truncate text-[10px] text-destructive"
+                                    title={row.publishError}
+                                  >
+                                    {row.publishError}
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                           </>
                         ) : null}
